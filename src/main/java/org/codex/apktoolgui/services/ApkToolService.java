@@ -2,7 +2,7 @@ package org.codex.apktoolgui.services;
 
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
-import org.codex.apktoolgui.view.MainView;
+import org.codex.apktoolgui.views.MainView;
 
 import java.io.File;
 import java.io.OutputStream;
@@ -11,42 +11,33 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
-import java.util.logging.Logger;
 import  org.codex.apktoolgui.services.executor.CommandExecutor;
 
 
 public class ApkToolService {
 
-    private  final Logger LOGGER = Logger.getLogger(ApkToolService.class.getName());
-    private static String apktoolPath= "apktool";
+    public static String getApkToolPath(){
+      File apktoolPath = new File("lib/apktool.jar");
+      if(apktoolPath.exists()){
+          return apktoolPath.getAbsolutePath();
+      }
+        return "";
+    }
 
-    // Command Execution Methods (same as before, but with dark theme styling)
     public void executeDecode(String apkPath, String outputPath, String frameworkPath,
-                               String apiLevel, String jobs, boolean noRes, boolean noSrc,
-                               boolean noAssets, boolean onlyManifest, boolean force,
-                               boolean noDebug, boolean matchOriginal, boolean keepBroken,
-                               boolean onlyMainClasses) {
+                              String apiLevel, String jobs, boolean noRes, boolean noSrc,
+                              boolean noAssets, boolean onlyManifest, boolean force,
+                              boolean noDebug, boolean matchOriginal, boolean keepBroken,
+                              boolean onlyMainClasses) {
         if (apkPath == null || apkPath.trim().isEmpty()) {
             MainView.showError("Please select an APK file to decode.");
             return;
         }
 
-        List<String> command = buildDecodeCommand(apkPath, outputPath, frameworkPath,
-                apiLevel, jobs, noRes, noSrc, noAssets, onlyManifest, force,
-                noDebug, matchOriginal, keepBroken, onlyMainClasses);
-
-        CommandExecutor.executeCommand(command, "Decoding APK...");
-    }
-
-    private static List<String> buildDecodeCommand(String apkPath, String outputPath, String frameworkPath,
-                                            String apiLevel, String jobs, boolean noRes, boolean noSrc,
-                                            boolean noAssets, boolean onlyManifest, boolean force,
-                                            boolean noDebug, boolean matchOriginal, boolean keepBroken,
-                                            boolean onlyMainClasses) {
         List<String> command = new ArrayList<>();
         command.add("java");
         command.add("-jar");
-        command.add(apktoolPath);
+        command.add(getApkToolPath());
         command.add("d");
 
         if (outputPath != null && !outputPath.trim().isEmpty()) {
@@ -78,9 +69,9 @@ public class ApkToolService {
         if (matchOriginal) command.add("-m");
         if (keepBroken) command.add("-k");
         if (onlyMainClasses) command.add("--only-main-classes");
-
         command.add(apkPath);
-        return command;
+
+        CommandExecutor.executeCommand(command, "Decoding APK...");
     }
 
 
@@ -96,7 +87,7 @@ public class ApkToolService {
         List<String> command = new ArrayList<>();
         command.add("java");
         command.add("-jar");
-        command.add(apktoolPath);
+        command.add(getApkToolPath());
         command.add("b");
 
         if (outputPath != null && !outputPath.trim().isEmpty()) {
@@ -136,7 +127,7 @@ public class ApkToolService {
         List<String> command = new ArrayList<>();
         command.add("java");
         command.add("-jar");
-        command.add(apktoolPath);
+        command.add(getApkToolPath());
         command.add("if");
 
         if (tag != null && !tag.trim().isEmpty()) {
@@ -153,7 +144,7 @@ public class ApkToolService {
         List<String> command = new ArrayList<>();
         command.add("java");
         command.add("-jar");
-        command.add(apktoolPath);
+        command.add(getApkToolPath());
         command.add("lf");
 
         CommandExecutor.executeCommand(command, "Listing frameworks...");
@@ -169,7 +160,7 @@ public class ApkToolService {
             List<String> command = new ArrayList<>();
             command.add("java");
             command.add("-jar");
-            command.add(apktoolPath);
+            command.add(getApkToolPath());
             command.add("efd");
             command.add("-f");
 
@@ -186,7 +177,7 @@ public class ApkToolService {
         List<String> command = new ArrayList<>();
         command.add("java");
         command.add("-jar");
-        command.add(apktoolPath);
+        command.add(getApkToolPath());
         command.add("pr");
         command.add(arscPath);
 
@@ -197,7 +188,7 @@ public class ApkToolService {
         List<String> command = new ArrayList<>();
         command.add("java");
         command.add("-jar");
-        command.add(apktoolPath);
+        command.add(getApkToolPath());
         command.add("v");
 
         CommandExecutor.executeCommand(command, "Checking version...");
@@ -207,25 +198,22 @@ public class ApkToolService {
         List<String> command = new ArrayList<>();
         command.add("java");
         command.add("-jar");
-        command.add(apktoolPath);
+        command.add(getApkToolPath());
         command.add("h");
 
         CommandExecutor.executeCommand(command, "Showing help...");
     }
 
-
-
-
     // Utility Methods
     public void checkApktoolAvailability() {
-        File apktoolFile = new File(apktoolPath);
+        File apktoolFile = new File(getApkToolPath());
         if (apktoolFile.exists()) {
-            MainView.appendOutput("✅ Apktool found at: " + apktoolPath);
+            MainView.appendOutput("✅ Apktool found at: " + getApkToolPath());
         } else {
             try {
                 Process process = new ProcessBuilder("apktool", "version").start();
                 if (process.waitFor() == 0) {
-                    apktoolPath = "apktool";
+                    getApkToolPath().isEmpty();
                     MainView.appendOutput("✅ Apktool found in system PATH");
                 } else {
                     MainView.showError("❌ Apktool not found! Please download apktool.jar and set the path in Settings.");
@@ -237,11 +225,11 @@ public class ApkToolService {
     }
 
     public void saveSettings(String ApktoolPath, String defaultDir) {
-        ApktoolPath = apktoolPath;
+        ApktoolPath = getApkToolPath();
 
         try {
             Properties props = new Properties();
-            props.setProperty("apktool.path", apktoolPath);
+            props.setProperty("apktool.path", getApkToolPath());
             props.setProperty("default.dir", defaultDir);
             props.setProperty("dark.mode", String.valueOf(MainView.darkMode));
 

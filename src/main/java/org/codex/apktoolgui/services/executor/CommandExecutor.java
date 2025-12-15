@@ -1,7 +1,7 @@
 package org.codex.apktoolgui.services.executor;
 
 import javafx.application.Platform;
-import org.codex.apktoolgui.view.MainView;
+import org.codex.apktoolgui.views.MainView;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;

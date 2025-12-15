@@ -2,7 +2,7 @@ package org.codex.apktoolgui;
 
 import javafx.application.Application;
 import javafx.stage.Stage;
-import org.codex.apktoolgui.view.MainView;
+import org.codex.apktoolgui.views.MainView;
 
 public class App extends Application {
     private MainView controller;
