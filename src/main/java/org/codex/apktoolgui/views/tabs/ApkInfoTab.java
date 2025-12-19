@@ -8,17 +8,13 @@ import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
-import javafx.scene.text.Text;
-import javafx.scene.text.TextFlow;
 import javafx.util.Duration;
+
 import org.codex.apktoolgui.config.ApkEditorGetInfoConfig;
 import org.codex.apktoolgui.services.ApkEditorService;
 import org.codex.apktoolgui.utils.ApkInfoParser;
 import org.codex.apktoolgui.utils.UiUtils;
 import org.codex.apktoolgui.views.MainView;
-
-import java.util.Map;
 
 public class ApkInfoTab {
     private final MainView mainView;
@@ -43,48 +39,68 @@ public class ApkInfoTab {
         this.updateDebouncer.setOnFinished(e -> updateRichUi());
     }
 
-    public Tab createApkInfoTab() {
-        Tab apkInfoTab = new Tab("APK INFO");
-        apkInfoTab.setClosable(false);
-        apkInfoTab.setGraphic(UiUtils.createIcon("⚡"));
+    public Node createContent() {
+        VBox root = new VBox(20);
+        root.setPadding(new Insets(20));
+        root.getStyleClass().add("root-container");
 
-        // --- Top Control Bar ---
-        Label apkLabel = new Label("APK File:");
-        apkLabel.setAlignment(Pos.CENTER_LEFT);
+        // --- Controls Card ---
+        VBox controlsCard = new VBox(15);
+        controlsCard.getStyleClass().add("card");
+
+        Label title = new Label("APK Information / Analyzer");
+        title.getStyleClass().add("card-title");
+
+        HBox topRow = new HBox(15);
+        topRow.setAlignment(Pos.CENTER_LEFT);
+
+        Label apkLabel = new Label("APK File");
         TextField apkPathField = new TextField();
         apkPathField.setPromptText("Select APK file...");
         HBox.setHgrow(apkPathField, Priority.ALWAYS);
 
-        Button browseApkButton = UiUtils.createStyledButton("Browse", "primary");
+        Button browseApkButton = new Button("Browse");
         browseApkButton.setOnAction(e -> UiUtils.browseFile(UiUtils.fileChooser, apkPathField, "Select APK", "*.apk", "Select File"));
 
-        Button getInfoButton = UiUtils.createStyledButton("Get Info", "success");
+        topRow.getChildren().addAll(apkLabel, apkPathField, browseApkButton);
+
+        HBox actionRow = new HBox(15);
+        actionRow.setAlignment(Pos.CENTER_LEFT);
+
+        Button getInfoButton = new Button("Analyze APK");
+        getInfoButton.getStyleClass().add("button-primary");
         getInfoButton.setPrefWidth(120);
 
-        Button optionsButton = UiUtils.createStyledButton("Options", "secondary");
+        Button optionsButton = new Button("⚙ Options");
         optionsButton.setOnAction(e -> showInfoOptionsDialog());
 
-        Button clearButton = UiUtils.createStyledButton("Clear", "danger");
+        Button clearButton = new Button("Clear Output");
         clearButton.setOnAction(e -> clearOutput());
+        
+        actionRow.getChildren().addAll(getInfoButton, optionsButton, clearButton);
 
-        HBox controlsBox = new HBox(10);
-        controlsBox.setPadding(new Insets(15));
-        controlsBox.setAlignment(Pos.CENTER_LEFT);
-        controlsBox.getStyleClass().add("dark-container");
-        controlsBox.getChildren().addAll(apkLabel, apkPathField, browseApkButton, getInfoButton, optionsButton, clearButton);
+        controlsCard.getChildren().addAll(title, topRow, actionRow);
 
         // --- Output Area (TabPane for Rich vs Raw) ---
+        // Using a card for the output container
+        VBox outputCard = new VBox();
+        outputCard.getStyleClass().add("card");
+        outputCard.setPadding(new Insets(0)); // TabPane handles padding
+        VBox.setVgrow(outputCard, Priority.ALWAYS);
+
         outputModeTabPane = new TabPane();
         outputModeTabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+        outputModeTabPane.getStyleClass().add("transparent-tab-pane");
         VBox.setVgrow(outputModeTabPane, Priority.ALWAYS);
 
         // 1. Rich View Tab
         Tab richViewTab = new Tab("Formatted View");
         richContentContainer = new VBox(15);
-        richContentContainer.setPadding(new Insets(15));
+        richContentContainer.setPadding(new Insets(20));
+        
         ScrollPane richScroll = new ScrollPane(richContentContainer);
         richScroll.setFitToWidth(true);
-        richScroll.getStyleClass().add("edge-to-edge");
+        richScroll.getStyleClass().add("scroll-pane");
         richViewTab.setContent(richScroll);
 
         // 2. Raw View Tab
@@ -92,21 +108,18 @@ public class ApkInfoTab {
         rawOutputArea = new TextArea();
         rawOutputArea.setFont(Font.font("Monospaced", 12));
         rawOutputArea.setEditable(false);
-        rawOutputArea.setWrapText(false);
         rawViewTab.setContent(rawOutputArea);
 
         outputModeTabPane.getTabs().addAll(richViewTab, rawViewTab);
+        outputCard.getChildren().add(outputModeTabPane);
 
-        // --- Main Layout ---
-        VBox mainLayout = new VBox(10);
-        mainLayout.setPadding(new Insets(10));
-        mainLayout.getChildren().addAll(controlsBox, outputModeTabPane);
-
+        root.getChildren().addAll(controlsCard, outputCard);
+        
         // --- Logic ---
         getInfoButton.setOnAction(e -> {
             String apkPath = apkPathField.getText();
             if (apkPath == null || apkPath.trim().isEmpty()) {
-                UiUtils.showAlert("Error", "Please select an APK file first.");
+                mainView.showError("Please select an APK file first.");
                 return;
             }
 
@@ -141,8 +154,7 @@ public class ApkInfoTab {
             );
         });
 
-        apkInfoTab.setContent(mainLayout);
-        return apkInfoTab;
+        return root;
     }
 
     private void handleStreamOutput(String output) {
@@ -205,7 +217,7 @@ public class ApkInfoTab {
         outputBuffer.setLength(0);
         // Reset to initial waiting state
         Label waiting = new Label("Waiting for output...");
-        waiting.setStyle("-fx-text-fill: grey; -fx-font-style: italic;");
+        waiting.getStyleClass().add("label-dim");
         richContentContainer.getChildren().add(waiting);
     }
 
@@ -226,6 +238,9 @@ public class ApkInfoTab {
         dialog.setTitle("Information Options");
         dialog.setHeaderText("Select the information you want to extract");
         dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL, ButtonType.APPLY);
+        
+        dialog.getDialogPane().getStylesheets().add(getClass().getResource("/org/codex/apktoolgui/dark-theme.css").toExternalForm());
+        dialog.getDialogPane().getStyleClass().add("card");
 
         // Grid of checkboxes (kept simplified for brevity, logic remains same as original)
         GridPane grid = new GridPane();

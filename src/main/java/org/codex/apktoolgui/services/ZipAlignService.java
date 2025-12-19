@@ -4,19 +4,32 @@ package org.codex.apktoolgui.services;
 import java.util.List;
 import java.util.ArrayList;
 import org.codex.apktoolgui.services.executor.CommandExecutor;
-
+import java.io.File;
 
 public class ZipAlignService {
-    private static String zipalignPath = "zipalign";
+    
+    private final CommandExecutor commandExecutor;
 
-    public static void alighApk(String apkPath, String outputPath){
+    public ZipAlignService(CommandExecutor commandExecutor) {
+        this.commandExecutor = commandExecutor;
+    }
+
+    public static String getZipalighPath(){
+        File zipalignPath = new File("lib/zipalign");
+        if(zipalignPath.exists()){
+            return zipalignPath.getAbsolutePath();
+        }
+        return "";
+    }
+
+    public void alighApk(String apkPath, String outputPath){
         List<String> command = new ArrayList<>();
-        command.add(zipalignPath);
+        command.add(getZipalighPath());
         command.add("-v");
         command.add("4");
         command.add(apkPath);
         command.add(outputPath);
-        CommandExecutor.executeCommand(command, "Aligning APK...");
+        commandExecutor.executeCommand(command, "Aligning APK...");
     }
 
 }

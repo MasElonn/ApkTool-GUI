@@ -16,7 +16,7 @@ import javafx.stage.FileChooser;
 import java.io.File;
 import java.util.Map;
 
-import static org.codex.apktoolgui.views.MainView.appendOutput;
+
 
 public final class UiUtils {
     public static boolean darkMode = true;
@@ -167,12 +167,21 @@ public final class UiUtils {
         }
     }
 
-    public static String getDefaultOutputPath(String inputPath, String suffix) {
+    public static String generateOutputFilePath(String inputPath, String suffix) {
         File inputFile = new File(inputPath);
         String name = inputFile.getName();
-        String baseName = name.substring(0, name.lastIndexOf('.'));
-        String extension = name.substring(name.lastIndexOf('.'));
+        int dotIndex = name.lastIndexOf('.');
+        String baseName = (dotIndex == -1) ? name : name.substring(0, dotIndex);
+        String extension = (dotIndex == -1) ? "" : name.substring(dotIndex);
         return inputFile.getParent() + File.separator + baseName + suffix + extension;
+    }
+
+    public static String generateOutputDirectoryPath(String inputPath, String suffix) {
+        File inputFile = new File(inputPath);
+        String name = inputFile.getName();
+        int dotIndex = name.lastIndexOf('.');
+        String baseName = (dotIndex == -1) ? name : name.substring(0, dotIndex);
+        return inputFile.getParent() + File.separator + baseName + suffix;
     }
 
     public static void showAlert(String title, String message) {
@@ -209,6 +218,6 @@ public final class UiUtils {
     public static void switchTheme(boolean dark) {
         darkMode = dark;
         // In a real implementation, you would reload the CSS
-        appendOutput("Theme switched to " + (dark ? "Dark" : "Light") + " mode");
+        // appendOutput("Theme switched to " + (dark ? "Dark" : "Light") + " mode");
     }
 }

@@ -4,10 +4,17 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import org.codex.apktoolgui.services.executor.CommandExecutor;
-import org.codex.apktoolgui.views.MainView;
 import java.util.function.Consumer;
 
 public class ApkEditorService {
+
+    private final UserNotifier userNotifier;
+    private final CommandExecutor commandExecutor;
+
+    public ApkEditorService(UserNotifier userNotifier, CommandExecutor commandExecutor) {
+        this.userNotifier = userNotifier;
+        this.commandExecutor = commandExecutor;
+    }
 
     public static String getApkEditorPath() {
         File apkEditorPath = new File("lib/APKEditor.jar");
@@ -20,7 +27,7 @@ public class ApkEditorService {
     // 1. Decompile APK
     public void executeDecompile(String apkPath, String outputDir, boolean decompileToXml, boolean loadDex, String dexLibrary) {
         if (apkPath == null || apkPath.trim().isEmpty()) {
-            MainView.showError("Please select an APK file to decompile.");
+            userNotifier.showError("Please select an APK file to decompile.");
             return;
         }
 
@@ -52,13 +59,13 @@ public class ApkEditorService {
             command.add(dexLibrary); // Based on example: -dex-lib = jf
         }
 
-        CommandExecutor.executeCommand(command, "Decompiling APK...");
+        commandExecutor.executeCommand(command, "Decompiling APK...");
     }
 
     // 2. Build APK from decompiled files
     public void executeBuild(String inputDir, String outputApk, boolean buildFromXml, String dexLibrary) {
         if (inputDir == null || inputDir.trim().isEmpty()) {
-            MainView.showError("Please select a decompiled directory to build.");
+            userNotifier.showError("Please select a decompiled directory to build.");
             return;
         }
 
@@ -85,13 +92,13 @@ public class ApkEditorService {
             command.add(dexLibrary);
         }
 
-        CommandExecutor.executeCommand(command, "Building APK...");
+        commandExecutor.executeCommand(command, "Building APK...");
     }
 
     // 3. Merge split APKs - Simple version (existing)
     public void executeMerge(String inputPath, String outputApk) {
         if (inputPath == null || inputPath.trim().isEmpty()) {
-            MainView.showError("Please select input for merging.");
+            userNotifier.showError("Please select input for merging.");
             return;
         }
 
@@ -108,14 +115,14 @@ public class ApkEditorService {
             command.add(outputApk);
         }
 
-        CommandExecutor.executeCommand(command, "Merging APKs...");
+        commandExecutor.executeCommand(command, "Merging APKs...");
     }
 
     // 3. Merge split APKs - Advanced version (with more options)
     public void executeMergeAdvanced(String inputPath, String outputApk, String resDir, String extractNativeLibs,
                                      boolean cleanMeta, boolean forceDelete, boolean validateModules, boolean vrd) {
         if (inputPath == null || inputPath.trim().isEmpty()) {
-            MainView.showError("Please select input for merging.");
+            userNotifier.showError("Please select input for merging.");
             return;
         }
 
@@ -158,14 +165,14 @@ public class ApkEditorService {
             command.add("-vrd");
         }
 
-        CommandExecutor.executeCommand(command, "Merging APKs...");
+        commandExecutor.executeCommand(command, "Merging APKs...");
     }
 
     // 4. Refactor obfuscated resources
     public void executeRefactor(String inputApk, String outputApk, String publicXml,
                                 boolean cleanMeta, boolean forceDelete, boolean fixTypes) {
         if (inputApk == null || inputApk.trim().isEmpty()) {
-            MainView.showError("Please select an APK file to refactor.");
+            userNotifier.showError("Please select an APK file to refactor.");
             return;
         }
 
@@ -199,7 +206,7 @@ public class ApkEditorService {
             command.add("-fix-types");
         }
 
-        CommandExecutor.executeCommand(command, "Refactoring APK...");
+        commandExecutor.executeCommand(command, "Refactoring APK...");
     }
 
     // 5. Protect/Obfuscate APK resources
@@ -207,7 +214,7 @@ public class ApkEditorService {
                                boolean confuseZip, String dicDirNames, String dicFileNames,
                                boolean forceDelete, boolean skipManifest) {
         if (inputApk == null || inputApk.trim().isEmpty()) {
-            MainView.showError("Please select an APK file to protect.");
+            userNotifier.showError("Please select an APK file to protect.");
             return;
         }
 
@@ -251,7 +258,7 @@ public class ApkEditorService {
             command.add("-skip-manifest");
         }
 
-        CommandExecutor.executeCommand(command, "Protecting APK...");
+        commandExecutor.executeCommand(command, "Protecting APK...");
     }
 
     // 6. Get APK information
@@ -268,7 +275,7 @@ public class ApkEditorService {
                                boolean versionCode, boolean versionName,Consumer<String> outputConsumer) {
 
         if (inputApk == null || inputApk.trim().isEmpty()) {
-            MainView.showError("Please select an APK file to get information.");
+            userNotifier.showError("Please select an APK file to get information.");
             return;
         }
 
@@ -344,7 +351,7 @@ public class ApkEditorService {
         if (versionCode) command.add("-version-code");
         if (versionName) command.add("-version-name");
 
-        CommandExecutor.executeCommand(command, "Getting APK information...",outputConsumer);
+        commandExecutor.executeCommand(command, "Getting APK information...",outputConsumer);
     }
 
 }

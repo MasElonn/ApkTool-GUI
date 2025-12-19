@@ -2,6 +2,7 @@ package org.codex.apktoolgui.views.tabs;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -29,88 +30,77 @@ public class ApkEditorTab {
         this.apkEditorService = apkEditorService;
     }
 
-    public Tab createAPKEditorTab() {
-        Tab apkEditorTab = new Tab("APKEDITOR");
-        apkEditorTab.setClosable(false);
-        apkEditorTab.setGraphic(UiUtils.createIcon("⚡"));
+    public Node createContent() {
+        ScrollPane scrollPane = new ScrollPane();
+        scrollPane.setFitToWidth(true);
+        scrollPane.getStyleClass().add("scroll-pane");
 
-        // Create main container with 5 sections
-        VBox mainBox = new VBox(15);
+        // Create main container with sections
+        VBox mainBox = new VBox(20);
         mainBox.setPadding(new Insets(20));
-        mainBox.getStyleClass().add("dark-container");
+        mainBox.getStyleClass().add("root-container");
 
         // ========== DECOMPILE SECTION ==========
         VBox decompileSection = createDecompileSection();
-
-        Separator sep1 = new Separator();
-        sep1.setPadding(new Insets(10, 0, 10, 0));
+        decompileSection.getStyleClass().add("card");
 
         // ========== BUILD SECTION ==========
         VBox buildSection = createBuildSection();
-
-        Separator sep2 = new Separator();
-        sep2.setPadding(new Insets(10, 0, 10, 0));
+        buildSection.getStyleClass().add("card");
 
         // ========== MERGE SECTION ==========
         VBox mergeSection = createMergeSection();
-
-        Separator sep3 = new Separator();
-        sep3.setPadding(new Insets(10, 0, 10, 0));
+        mergeSection.getStyleClass().add("card");
 
         // ========== REFACTOR SECTION ==========
         VBox refactorSection = createRefactorSection();
-
-        Separator sep4 = new Separator();
-        sep4.setPadding(new Insets(10, 0, 10, 0));
+        refactorSection.getStyleClass().add("card");
 
         // ========== PROTECT SECTION ==========
         VBox protectSection = createProtectSection();
+        protectSection.getStyleClass().add("card");
 
         mainBox.getChildren().addAll(
-                decompileSection, sep1,
-                buildSection, sep2,
-                mergeSection, sep3,
-                refactorSection, sep4,
+                decompileSection,
+                buildSection,
+                mergeSection,
+                refactorSection,
                 protectSection
         );
 
-        ScrollPane scrollPane = new ScrollPane();
         scrollPane.setContent(mainBox);
-        scrollPane.setFitToWidth(true);
-        scrollPane.setFitToHeight(false);
-        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        scrollPane.setPadding(new Insets(0));
-
-        apkEditorTab.setContent(scrollPane);
-        return apkEditorTab;
+        return scrollPane;
     }
 
     private VBox createDecompileSection() {
-        VBox section = new VBox(10);
-        section.getStyleClass().add("section-container");
-
+        VBox section = new VBox(15);
+        
         Label title = new Label("1. Decompile APK");
-        title.getStyleClass().add("section-title");
+        title.getStyleClass().add("card-title");
 
-        // File Selection
+        // File Selection Grid
         GridPane fileGrid = new GridPane();
-        fileGrid.setHgap(10);
-        fileGrid.setVgap(10);
+        fileGrid.setHgap(15);
+        fileGrid.setVgap(15);
 
-        Label apkLabel = new Label("APK File:");
+        Label apkLabel = new Label("APK File");
         TextField apkPathField = new TextField();
         apkPathField.setPromptText("Select APK file...");
-        apkPathField.setPrefWidth(300);
-
-        Button browseApkButton = UiUtils.createStyledButton("Browse", "primary");
-        browseApkButton.setOnAction(e -> UiUtils.browseFile(UiUtils.fileChooser, apkPathField, "Select APK", "*.apk", "Select File"));
-
-        Label outputLabel = new Label("Output Directory:");
+        Label outputLabel = new Label("Output Dir");
         TextField outputPathField = new TextField();
-        outputPathField.setPromptText("(Optional) Default: apk_decompiled");
+        outputPathField.setPromptText("(Optional) Default: [apkname]_decompiled");
+        GridPane.setHgrow(outputPathField, javafx.scene.layout.Priority.ALWAYS);
 
-        Button browseOutputButton = UiUtils.createStyledButton("Browse", "secondary");
+        Button browseApkButton = new Button("Browse");
+        browseApkButton.setOnAction(e -> {
+            File file = UiUtils.fileChooser.showOpenDialog(null);
+            if (file != null) {
+                apkPathField.setText(file.getAbsolutePath());
+                outputPathField.setText(UiUtils.generateOutputDirectoryPath(file.getAbsolutePath(), "_decompiled"));
+            }
+        });
+
+        Button browseOutputButton = new Button("Browse");
         browseOutputButton.setOnAction(e -> UiUtils.browseDirectory(UiUtils.directoryChooser, outputPathField));
 
         fileGrid.add(apkLabel, 0, 0);
@@ -121,38 +111,29 @@ public class ApkEditorTab {
         fileGrid.add(browseOutputButton, 2, 1);
 
         // Configuration summary
-        VBox configBox = new VBox(5);
-        configBox.getStyleClass().add("config-box");
-
-        Label configTitle = new Label("Decompile Configuration:");
-        configTitle.getStyleClass().add("config-title");
-
         Label configSummary = new Label("Default settings (JSON output)");
-        configSummary.setId("decompile-config-summary");
-        configSummary.setStyle("-fx-font-size: 11px; -fx-text-fill: #888;");
-        configSummary.setWrapText(true);
-
-        configBox.getChildren().addAll(configTitle, configSummary);
+        configSummary.getStyleClass().add("label-dim");
 
         // Buttons
-        HBox buttonBox = new HBox(10);
+        HBox buttonBox = new HBox(15);
         buttonBox.setAlignment(Pos.CENTER_LEFT);
 
-        Button configButton = UiUtils.createStyledButton("⚙ Configure Options", "secondary");
-        configButton.setPrefWidth(180);
+        Button configButton = new Button("⚙ Options");
         configButton.setOnAction(e -> showDecompileOptionsDialog(configSummary));
 
-        Button executeButton = UiUtils.createStyledButton("▶ Decompile APK", "large-primary");
-        executeButton.setPrefWidth(180);
+        Button executeButton = new Button("Decompile");
+        executeButton.getStyleClass().add("button-primary");
         executeButton.setOnAction(e -> {
             String apkPath = apkPathField.getText();
             if (apkPath.isEmpty()) {
-                UiUtils.showAlert("Error", "Please select an APK file first.");
+                mainView.showError("Please select an APK file first.");
                 return;
             }
 
-            String finalOutput = outputPathField.getText().isEmpty() ?
-                    UiUtils.getDefaultOutputPath(apkPath, "_decompiled") : outputPathField.getText();
+            String finalOutput = outputPathField.getText();
+            if (finalOutput.isEmpty()) {
+                finalOutput = UiUtils.generateOutputDirectoryPath(apkPath, "_decompiled");
+            }
 
             apkEditorService.executeDecompile(
                     apkPath,
@@ -163,37 +144,40 @@ public class ApkEditorTab {
             );
         });
 
-        buttonBox.getChildren().addAll(configButton, executeButton);
+        buttonBox.getChildren().addAll(executeButton, configButton);
 
-        section.getChildren().addAll(title, fileGrid, configBox, buttonBox);
+        section.getChildren().addAll(title, fileGrid, configSummary, buttonBox);
         return section;
     }
 
     private VBox createBuildSection() {
-        VBox section = new VBox(10);
-        section.getStyleClass().add("section-container");
+        VBox section = new VBox(15);
 
         Label title = new Label("2. Build APK");
-        title.getStyleClass().add("section-title");
+        title.getStyleClass().add("card-title");
 
-        // File Selection
         GridPane fileGrid = new GridPane();
-        fileGrid.setHgap(10);
-        fileGrid.setVgap(10);
+        fileGrid.setHgap(15);
+        fileGrid.setVgap(15);
 
-        Label inputLabel = new Label("Project Directory:");
+        Label inputLabel = new Label("Project Dir");
         TextField inputPathField = new TextField();
         inputPathField.setPromptText("Select decompiled directory...");
-        inputPathField.setPrefWidth(300);
-
-        Button browseInputButton = UiUtils.createStyledButton("Browse", "primary");
-        browseInputButton.setOnAction(e -> UiUtils.browseDirectory(UiUtils.directoryChooser, inputPathField));
-
-        Label outputLabel = new Label("Output APK:");
+        Label outputLabel = new Label("Output APK");
         TextField outputPathField = new TextField();
-        outputPathField.setPromptText("(Optional) Default: output.apk");
+        outputPathField.setPromptText("(Optional) Default: [project_dir].apk");
+        GridPane.setHgrow(outputPathField, javafx.scene.layout.Priority.ALWAYS);
 
-        Button browseOutputButton = UiUtils.createStyledButton("Browse", "secondary");
+        Button browseInputButton = new Button("Browse");
+        browseInputButton.setOnAction(e -> {
+            File dir = UiUtils.directoryChooser.showDialog(null);
+            if (dir != null) {
+                inputPathField.setText(dir.getAbsolutePath());
+                outputPathField.setText(UiUtils.generateOutputFilePath(dir.getAbsolutePath(), ".apk"));
+            }
+        });
+
+        Button browseOutputButton = new Button("Browse");
         browseOutputButton.setOnAction(e -> UiUtils.browseSaveFile(UiUtils.fileChooser, outputPathField, "Save APK", "*.apk", "Select File"));
 
         fileGrid.add(inputLabel, 0, 0);
@@ -203,40 +187,28 @@ public class ApkEditorTab {
         fileGrid.add(outputPathField, 1, 1);
         fileGrid.add(browseOutputButton, 2, 1);
 
-        // Configuration summary
-        VBox configBox = new VBox(5);
-        configBox.getStyleClass().add("config-box");
-
-        Label configTitle = new Label("Build Configuration:");
-        configTitle.getStyleClass().add("config-title");
-
         Label configSummary = new Label("Default settings (JSON input)");
-        configSummary.setId("build-config-summary");
-        configSummary.setStyle("-fx-font-size: 11px; -fx-text-fill: #888;");
-        configSummary.setWrapText(true);
+        configSummary.getStyleClass().add("label-dim");
 
-        configBox.getChildren().addAll(configTitle, configSummary);
-
-        // Buttons
-        HBox buttonBox = new HBox(10);
+        HBox buttonBox = new HBox(15);
         buttonBox.setAlignment(Pos.CENTER_LEFT);
 
-        Button configButton = UiUtils.createStyledButton("⚙ Configure Options", "secondary");
-        configButton.setPrefWidth(180);
+        Button configButton = new Button("⚙ Options");
         configButton.setOnAction(e -> showBuildOptionsDialog(configSummary));
 
-        Button executeButton = UiUtils.createStyledButton("▶ Build APK", "large-primary");
-        executeButton.setPrefWidth(180);
+        Button executeButton = new Button("Build APK");
+        executeButton.getStyleClass().add("button-primary");
         executeButton.setOnAction(e -> {
             String inputPath = inputPathField.getText();
             if (inputPath.isEmpty()) {
-                UiUtils.showAlert("Error", "Please select a project directory first.");
+                mainView.showError("Please select a project directory first.");
                 return;
             }
 
-            String finalOutput = outputPathField.getText().isEmpty() ?
-                    new File(inputPath).getParent() + File.separator + "output.apk" :
-                    outputPathField.getText();
+            String finalOutput = outputPathField.getText();
+            if (finalOutput.isEmpty()) {
+                 finalOutput = UiUtils.generateOutputFilePath(inputPath, ".apk");
+            }
 
             apkEditorService.executeBuild(
                     inputPath,
@@ -246,42 +218,40 @@ public class ApkEditorTab {
             );
         });
 
-        buttonBox.getChildren().addAll(configButton, executeButton);
+        buttonBox.getChildren().addAll(executeButton, configButton);
 
-        section.getChildren().addAll(title, fileGrid, configBox, buttonBox);
+        section.getChildren().addAll(title, fileGrid, configSummary, buttonBox);
         return section;
     }
 
     private VBox createMergeSection() {
-        VBox section = new VBox(10);
-        section.getStyleClass().add("section-container");
-
+        VBox section = new VBox(15);
+        
         Label title = new Label("3. Merge Split APKs");
-        title.getStyleClass().add("section-title");
+        title.getStyleClass().add("card-title");
 
-        // File Selection
         GridPane fileGrid = new GridPane();
-        fileGrid.setHgap(10);
-        fileGrid.setVgap(10);
+        fileGrid.setHgap(15);
+        fileGrid.setVgap(15);
 
-        Label inputLabel = new Label("Input Path:");
+        Label inputLabel = new Label("Input Path");
         TextField inputPathField = new TextField();
         inputPathField.setPromptText("Directory or XAPK/APKM/APKS file...");
-        inputPathField.setPrefWidth(300);
+        Label outputLabel = new Label("Output APK");
+        TextField outputPathField = new TextField();
+        outputPathField.setPromptText("(Optional) Default: [name]_merged.apk");
+        GridPane.setHgrow(outputPathField, javafx.scene.layout.Priority.ALWAYS);
 
-        Button browseInputButton = UiUtils.createStyledButton("Browse", "primary");
+        Button browseInputButton = new Button("Browse");
         browseInputButton.setOnAction(e -> {
             File file = UiUtils.directoryChooser.showDialog(null);
             if (file != null) {
                 inputPathField.setText(file.getAbsolutePath());
+                outputPathField.setText(UiUtils.generateOutputDirectoryPath(file.getAbsolutePath(), "_merged.apk"));
             }
         });
 
-        Label outputLabel = new Label("Output APK:");
-        TextField outputPathField = new TextField();
-        outputPathField.setPromptText("(Optional) Default: merged.apk");
-
-        Button browseOutputButton = UiUtils.createStyledButton("Browse", "secondary");
+        Button browseOutputButton = new Button("Browse");
         browseOutputButton.setOnAction(e -> UiUtils.browseSaveFile(UiUtils.fileChooser, outputPathField, "Save Merged APK", "*.apk", "Select File"));
 
         fileGrid.add(inputLabel, 0, 0);
@@ -291,40 +261,28 @@ public class ApkEditorTab {
         fileGrid.add(outputPathField, 1, 1);
         fileGrid.add(browseOutputButton, 2, 1);
 
-        // Configuration summary
-        VBox configBox = new VBox(5);
-        configBox.getStyleClass().add("config-box");
-
-        Label configTitle = new Label("Merge Configuration:");
-        configTitle.getStyleClass().add("config-title");
-
         Label configSummary = new Label("Default settings");
-        configSummary.setId("merge-config-summary");
-        configSummary.setStyle("-fx-font-size: 11px; -fx-text-fill: #888;");
-        configSummary.setWrapText(true);
+        configSummary.getStyleClass().add("label-dim");
 
-        configBox.getChildren().addAll(configTitle, configSummary);
-
-        // Buttons
-        HBox buttonBox = new HBox(10);
+        HBox buttonBox = new HBox(15);
         buttonBox.setAlignment(Pos.CENTER_LEFT);
 
-        Button configButton = UiUtils.createStyledButton("⚙ Configure Options", "secondary");
-        configButton.setPrefWidth(180);
+        Button configButton = new Button("⚙ Options");
         configButton.setOnAction(e -> showMergeOptionsDialog(configSummary));
 
-        Button executeButton = UiUtils.createStyledButton("▶ Merge APKs", "large-primary");
-        executeButton.setPrefWidth(180);
+        Button executeButton = new Button("Merge APKs");
+        executeButton.getStyleClass().add("button-primary");
         executeButton.setOnAction(e -> {
             String inputPath = inputPathField.getText();
             if (inputPath.isEmpty()) {
-                UiUtils.showAlert("Error", "Please select input path first.");
+                mainView.showError("Please select input path first.");
                 return;
             }
 
-            String finalOutput = outputPathField.getText().isEmpty() ?
-                    new File(inputPath).getParent() + File.separator + "merged.apk" :
-                    outputPathField.getText();
+            String finalOutput = outputPathField.getText();
+            if (finalOutput.isEmpty()) {
+                finalOutput = UiUtils.generateOutputDirectoryPath(inputPath, "_merged.apk");
+            }
 
             apkEditorService.executeMergeAdvanced(
                     inputPath,
@@ -338,37 +296,40 @@ public class ApkEditorTab {
             );
         });
 
-        buttonBox.getChildren().addAll(configButton, executeButton);
+        buttonBox.getChildren().addAll(executeButton, configButton);
 
-        section.getChildren().addAll(title, fileGrid, configBox, buttonBox);
+        section.getChildren().addAll(title, fileGrid, configSummary, buttonBox);
         return section;
     }
 
     private VBox createRefactorSection() {
-        VBox section = new VBox(10);
-        section.getStyleClass().add("section-container");
+        VBox section = new VBox(15);
 
         Label title = new Label("4. Refactor Obfuscated Resources");
-        title.getStyleClass().add("section-title");
+        title.getStyleClass().add("card-title");
 
-        // File Selection
         GridPane fileGrid = new GridPane();
-        fileGrid.setHgap(10);
-        fileGrid.setVgap(10);
+        fileGrid.setHgap(15);
+        fileGrid.setVgap(15);
 
-        Label apkLabel = new Label("APK File:");
+        Label apkLabel = new Label("APK File");
         TextField apkPathField = new TextField();
         apkPathField.setPromptText("Select APK file...");
-        apkPathField.setPrefWidth(300);
-
-        Button browseApkButton = UiUtils.createStyledButton("Browse", "primary");
-        browseApkButton.setOnAction(e -> UiUtils.browseFile(UiUtils.fileChooser, apkPathField, "Select APK", "*.apk", "Select File"));
-
-        Label outputLabel = new Label("Output APK:");
+        Label outputLabel = new Label("Output APK");
         TextField outputPathField = new TextField();
-        outputPathField.setPromptText("(Optional) Default: input_refactored.apk");
+        outputPathField.setPromptText("(Optional) Default: [apkname]_refactored.apk");
+        GridPane.setHgrow(outputPathField, javafx.scene.layout.Priority.ALWAYS);
 
-        Button browseOutputButton = UiUtils.createStyledButton("Browse", "secondary");
+        Button browseApkButton = new Button("Browse");
+        browseApkButton.setOnAction(e -> {
+            File file = UiUtils.fileChooser.showOpenDialog(null);
+            if (file != null) {
+                apkPathField.setText(file.getAbsolutePath());
+                outputPathField.setText(UiUtils.generateOutputFilePath(file.getAbsolutePath(), "_refactored"));
+            }
+        });
+
+        Button browseOutputButton = new Button("Browse");
         browseOutputButton.setOnAction(e -> UiUtils.browseSaveFile(UiUtils.fileChooser, outputPathField, "Save Refactored APK", "*.apk", "Select File"));
 
         fileGrid.add(apkLabel, 0, 0);
@@ -378,39 +339,28 @@ public class ApkEditorTab {
         fileGrid.add(outputPathField, 1, 1);
         fileGrid.add(browseOutputButton, 2, 1);
 
-        // Configuration summary
-        VBox configBox = new VBox(5);
-        configBox.getStyleClass().add("config-box");
-
-        Label configTitle = new Label("Refactor Configuration:");
-        configTitle.getStyleClass().add("config-title");
-
         Label configSummary = new Label("Default settings");
-        configSummary.setId("refactor-config-summary");
-        configSummary.setStyle("-fx-font-size: 11px; -fx-text-fill: #888;");
-        configSummary.setWrapText(true);
+        configSummary.getStyleClass().add("label-dim");
 
-        configBox.getChildren().addAll(configTitle, configSummary);
-
-        // Buttons
-        HBox buttonBox = new HBox(10);
+        HBox buttonBox = new HBox(15);
         buttonBox.setAlignment(Pos.CENTER_LEFT);
 
-        Button configButton = UiUtils.createStyledButton("⚙ Configure Options", "secondary");
-        configButton.setPrefWidth(180);
+        Button configButton = new Button("⚙ Options");
         configButton.setOnAction(e -> showRefactorOptionsDialog(configSummary));
 
-        Button executeButton = UiUtils.createStyledButton("▶ Refactor APK", "large-primary");
-        executeButton.setPrefWidth(180);
+        Button executeButton = new Button("Refactor APK");
+        executeButton.getStyleClass().add("button-primary");
         executeButton.setOnAction(e -> {
             String apkPath = apkPathField.getText();
             if (apkPath.isEmpty()) {
-                UiUtils.showAlert("Error", "Please select an APK file first.");
+                mainView.showError("Please select an APK file first.");
                 return;
             }
 
-            String finalOutput = outputPathField.getText().isEmpty() ?
-                    UiUtils.getDefaultOutputPath(apkPath, "_refactored") : outputPathField.getText();
+            String finalOutput = outputPathField.getText();
+            if (finalOutput.isEmpty()) {
+                finalOutput = UiUtils.generateOutputFilePath(apkPath, "_refactored");
+            }
 
             apkEditorService.executeRefactor(
                     apkPath,
@@ -422,37 +372,40 @@ public class ApkEditorTab {
             );
         });
 
-        buttonBox.getChildren().addAll(configButton, executeButton);
+        buttonBox.getChildren().addAll(executeButton, configButton);
 
-        section.getChildren().addAll(title, fileGrid, configBox, buttonBox);
+        section.getChildren().addAll(title, fileGrid, configSummary, buttonBox);
         return section;
     }
 
     private VBox createProtectSection() {
-        VBox section = new VBox(10);
-        section.getStyleClass().add("section-container");
+        VBox section = new VBox(15);
 
         Label title = new Label("5. Protect/Obfuscate APK");
-        title.getStyleClass().add("section-title");
+        title.getStyleClass().add("card-title");
 
-        // File Selection
         GridPane fileGrid = new GridPane();
-        fileGrid.setHgap(10);
-        fileGrid.setVgap(10);
+        fileGrid.setHgap(15);
+        fileGrid.setVgap(15);
 
-        Label apkLabel = new Label("APK File:");
+        Label apkLabel = new Label("APK File");
         TextField apkPathField = new TextField();
         apkPathField.setPromptText("Select APK file...");
-        apkPathField.setPrefWidth(300);
-
-        Button browseApkButton = UiUtils.createStyledButton("Browse", "primary");
-        browseApkButton.setOnAction(e -> UiUtils.browseFile(UiUtils.fileChooser, apkPathField, "Select APK", "*.apk", "Select File"));
-
-        Label outputLabel = new Label("Output APK:");
+        Label outputLabel = new Label("Output APK");
         TextField outputPathField = new TextField();
-        outputPathField.setPromptText("(Optional) Default: input_protected.apk");
+        outputPathField.setPromptText("(Optional) Default: [apkname]_protected.apk");
+        GridPane.setHgrow(outputPathField, javafx.scene.layout.Priority.ALWAYS);
 
-        Button browseOutputButton = UiUtils.createStyledButton("Browse", "secondary");
+        Button browseApkButton = new Button("Browse");
+        browseApkButton.setOnAction(e -> {
+            File file = UiUtils.fileChooser.showOpenDialog(null);
+            if (file != null) {
+                apkPathField.setText(file.getAbsolutePath());
+                outputPathField.setText(UiUtils.generateOutputFilePath(file.getAbsolutePath(), "_protected"));
+            }
+        });
+
+        Button browseOutputButton = new Button("Browse");
         browseOutputButton.setOnAction(e -> UiUtils.browseSaveFile(UiUtils.fileChooser, outputPathField, "Save Protected APK", "*.apk", "Select File"));
 
         fileGrid.add(apkLabel, 0, 0);
@@ -462,39 +415,28 @@ public class ApkEditorTab {
         fileGrid.add(outputPathField, 1, 1);
         fileGrid.add(browseOutputButton, 2, 1);
 
-        // Configuration summary
-        VBox configBox = new VBox(5);
-        configBox.getStyleClass().add("config-box");
-
-        Label configTitle = new Label("Protect Configuration:");
-        configTitle.getStyleClass().add("config-title");
-
         Label configSummary = new Label("Default settings (keep font resources)");
-        configSummary.setId("protect-config-summary");
-        configSummary.setStyle("-fx-font-size: 11px; -fx-text-fill: #888;");
-        configSummary.setWrapText(true);
+        configSummary.getStyleClass().add("label-dim");
 
-        configBox.getChildren().addAll(configTitle, configSummary);
-
-        // Buttons
-        HBox buttonBox = new HBox(10);
+        HBox buttonBox = new HBox(15);
         buttonBox.setAlignment(Pos.CENTER_LEFT);
 
-        Button configButton = UiUtils.createStyledButton("⚙ Configure Options", "secondary");
-        configButton.setPrefWidth(180);
+        Button configButton = new Button("⚙ Options");
         configButton.setOnAction(e -> showProtectOptionsDialog(configSummary));
 
-        Button executeButton = UiUtils.createStyledButton("▶ Protect APK", "large-primary");
-        executeButton.setPrefWidth(180);
+        Button executeButton = new Button("Protect APK");
+        executeButton.getStyleClass().add("button-primary");
         executeButton.setOnAction(e -> {
             String apkPath = apkPathField.getText();
             if (apkPath.isEmpty()) {
-                UiUtils.showAlert("Error", "Please select an APK file first.");
+                mainView.showError("Please select an APK file first.");
                 return;
             }
 
-            String finalOutput = outputPathField.getText().isEmpty() ?
-                    UiUtils.getDefaultOutputPath(apkPath, "_protected") : outputPathField.getText();
+            String finalOutput = outputPathField.getText();
+            if (finalOutput.isEmpty()) {
+                finalOutput = UiUtils.generateOutputFilePath(apkPath, "_protected");
+            }
 
             apkEditorService.executeProtect(
                     apkPath,
@@ -508,18 +450,21 @@ public class ApkEditorTab {
             );
         });
 
-        buttonBox.getChildren().addAll(configButton, executeButton);
+        buttonBox.getChildren().addAll(executeButton, configButton);
 
-        section.getChildren().addAll(title, fileGrid, configBox, buttonBox);
+        section.getChildren().addAll(title, fileGrid, configSummary, buttonBox);
         return section;
     }
 
-    // ========== DIALOG METHODS ==========
+    // ========== DIALOG METHODS (Dialog styling added) ==========
 
     private void showDecompileOptionsDialog(Label configSummary) {
         Dialog<ButtonType> dialog = new Dialog<>();
         dialog.setTitle("Decompile Configuration");
         dialog.setHeaderText("Configure decompilation options");
+        
+        dialog.getDialogPane().getStylesheets().add(getClass().getResource("/org/codex/apktoolgui/dark-theme.css").toExternalForm());
+        dialog.getDialogPane().getStyleClass().add("card");
 
         dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL, ButtonType.APPLY);
 
@@ -568,6 +513,9 @@ public class ApkEditorTab {
         Dialog<ButtonType> dialog = new Dialog<>();
         dialog.setTitle("Build Configuration");
         dialog.setHeaderText("Configure build options");
+        
+        dialog.getDialogPane().getStylesheets().add(getClass().getResource("/org/codex/apktoolgui/dark-theme.css").toExternalForm());
+        dialog.getDialogPane().getStyleClass().add("card");
 
         dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL, ButtonType.APPLY);
 
@@ -610,6 +558,9 @@ public class ApkEditorTab {
         Dialog<ButtonType> dialog = new Dialog<>();
         dialog.setTitle("Merge Configuration");
         dialog.setHeaderText("Configure merge options");
+        
+        dialog.getDialogPane().getStylesheets().add(getClass().getResource("/org/codex/apktoolgui/dark-theme.css").toExternalForm());
+        dialog.getDialogPane().getStyleClass().add("card");
 
         dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL, ButtonType.APPLY);
 
@@ -671,6 +622,9 @@ public class ApkEditorTab {
         Dialog<ButtonType> dialog = new Dialog<>();
         dialog.setTitle("Refactor Configuration");
         dialog.setHeaderText("Configure refactor options");
+        
+        dialog.getDialogPane().getStylesheets().add(getClass().getResource("/org/codex/apktoolgui/dark-theme.css").toExternalForm());
+        dialog.getDialogPane().getStyleClass().add("card");
 
         dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL, ButtonType.APPLY);
 
@@ -721,6 +675,9 @@ public class ApkEditorTab {
         Dialog<ButtonType> dialog = new Dialog<>();
         dialog.setTitle("Protect Configuration");
         dialog.setHeaderText("Configure protection options");
+        
+        dialog.getDialogPane().getStylesheets().add(getClass().getResource("/org/codex/apktoolgui/dark-theme.css").toExternalForm());
+        dialog.getDialogPane().getStyleClass().add("card");
 
         dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL, ButtonType.APPLY);
 
@@ -798,7 +755,6 @@ public class ApkEditorTab {
         summary.append(", DEX lib: ").append(decompileConfig.getDexLibrary());
 
         configSummary.setText(summary.toString());
-        configSummary.setStyle("-fx-font-size: 11px; -fx-text-fill: #4CAF50; -fx-font-weight: bold;");
     }
 
     private void updateBuildConfigSummary(Label configSummary) {
@@ -808,57 +764,32 @@ public class ApkEditorTab {
         } else {
             summary.append("JSON input");
         }
-
         summary.append(", DEX lib: ").append(buildConfig.getDexLibrary());
-
         configSummary.setText(summary.toString());
-        configSummary.setStyle("-fx-font-size: 11px; -fx-text-fill: #2196F3; -fx-font-weight: bold;");
     }
 
     private void updateMergeConfigSummary(Label configSummary) {
-        StringBuilder summary = new StringBuilder();
-
-        if (mergeConfig.getResDir() != null && !mergeConfig.getResDir().isEmpty()) {
-            summary.append("Res dir: ").append(mergeConfig.getResDir()).append(", ");
-        }
-
-        summary.append("Native libs: ").append(mergeConfig.getExtractNativeLibs());
-
-        if (mergeConfig.isCleanMeta()) summary.append(", Clean META");
-        if (mergeConfig.isValidateModules()) summary.append(", Validate modules");
-        if (mergeConfig.isVrd()) summary.append(", VRD");
-
-        configSummary.setText(summary.toString());
-        configSummary.setStyle("-fx-font-size: 11px; -fx-text-fill: #FF9800; -fx-font-weight: bold;");
+        int count = 0;
+        if(mergeConfig.isCleanMeta()) count++;
+        if(mergeConfig.isValidateModules()) count++;
+        if(mergeConfig.isVrd()) count++;
+        
+        configSummary.setText(count + " options selected");
     }
 
     private void updateRefactorConfigSummary(Label configSummary) {
-        StringBuilder summary = new StringBuilder();
-
-        if (refactorConfig.getPublicXml() != null && !refactorConfig.getPublicXml().isEmpty()) {
-            summary.append("Using public.xml, ");
-        }
-
-        if (refactorConfig.isCleanMeta()) summary.append("Clean META, ");
-        if (refactorConfig.isFixTypes()) summary.append("Fix types");
-
-        if (summary.length() == 0) summary.append("Default settings");
-
-        configSummary.setText(summary.toString());
-        configSummary.setStyle("-fx-font-size: 11px; -fx-text-fill: #9C27B0; -fx-font-weight: bold;");
+        int count = 0;
+        if(refactorConfig.isCleanMeta()) count++;
+        if(refactorConfig.isFixTypes()) count++;
+        
+        configSummary.setText(count + " options selected");
     }
 
     private void updateProtectConfigSummary(Label configSummary) {
-        StringBuilder summary = new StringBuilder();
-
-        summary.append("Keep type: ").append(protectConfig.getKeepType());
-
-        if (protectConfig.isConfuseZip()) summary.append(", Confuse zip");
-        if (protectConfig.isSkipManifest()) summary.append(", Skip manifest");
-
-        configSummary.setText(summary.toString());
-        configSummary.setStyle("-fx-font-size: 11px; -fx-text-fill: #F44336; -fx-font-weight: bold;");
+        int count = 0;
+        if(protectConfig.isConfuseZip()) count++;
+        if(protectConfig.isSkipManifest()) count++;
+        
+        configSummary.setText(count + " options selected (Keep: " + protectConfig.getKeepType() + ")");
     }
-
-    // ========== HELPER METHODS ==========
 }

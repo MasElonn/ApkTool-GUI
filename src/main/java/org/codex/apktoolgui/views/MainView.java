@@ -3,34 +3,58 @@ package org.codex.apktoolgui.views;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
-import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import org.codex.apktoolgui.services.ApkToolService;
 import org.codex.apktoolgui.services.ApkEditorService;
+import org.codex.apktoolgui.services.InjectDocService;
+import org.codex.apktoolgui.services.ZipAlignService;
+import org.codex.apktoolgui.services.LogOutput;
+import org.codex.apktoolgui.services.UserNotifier;
+import org.codex.apktoolgui.services.StatusHandler;
 import org.codex.apktoolgui.services.executor.CommandExecutor;
 import org.codex.apktoolgui.utils.UiUtils;
+import org.codex.apktoolgui.views.tabs.*;
 
-import java.io.*;
+import java.io.File;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Properties;
-import org.codex.apktoolgui.views.tabs.*;
 
 import static org.codex.apktoolgui.services.ApkToolService.getApkToolPath;
+import org.codex.apktoolgui.services.AdbService;
 
-public class MainView {
-    ApkToolService apkToolService = new ApkToolService();
-    ApkEditorService apkEditorService = new ApkEditorService();
+public class MainView implements LogOutput, UserNotifier, StatusHandler {
+    
+    // Services
+    private ApkToolService apkToolService;
+    private ApkEditorService apkEditorService;
+    private InjectDocService injectDocService;
+    private ZipAlignService zipAlignService;
+    private AdbService adbService;
+    private CommandExecutor commandExecutor;
 
     // UI Components
-    public static TextArea outputArea;
-    public static ProgressBar progressBar;
-    public static Label statusLabel;
+    public TextArea outputArea;
+    public ProgressBar progressBar;
+    public Label statusLabel;
+    
+    private BorderPane rootLayout;
+    private StackPane contentArea;
+    private VBox sidebar;
+
+    // Views (Nodes)
+    private Node apkToolView;
+    private Node apkEditorView;
+    private Node apkInfoView;
+    private Node utilitiesView;
+    private Node adbView;
 
     private Stage primaryStage;
     String apktoolPath = getApkToolPath();
@@ -40,37 +64,47 @@ public class MainView {
     }
 
     public void stop() {
-        CommandExecutor.shutdown();
+        if (commandExecutor != null) {
+            commandExecutor.shutdown();
+        }
     }
-
 
     public void initialize(Stage primaryStage) {
         primaryStage.setTitle("Apktool GUI v2.12.0");
 
-        // Initialize
+        // Initialize Services & Components
+        initializeUIComponents();
+        initializeServices();
         initializeFileChoosers();
 
-        // Create main layout
-        BorderPane root = new BorderPane();
-        root.getStyleClass().add("root");
+        // Initialize Views
+        apkToolView = new ApkToolTab(this, apkToolService).createContent();
+        apkEditorView = new ApkEditorTab(this, apkEditorService).createContent();
+        apkInfoView = new ApkInfoTab(this, apkEditorService).createContent();
+        utilitiesView = new UtilitiesTab(this, injectDocService, zipAlignService).createContent();
+        adbView = new AdbTab(this, adbService).createContent();
 
-        // Create menu bar
-        root.setTop(createMenuBar(primaryStage));
+        // Create Main Layout
+        rootLayout = new BorderPane();
+        rootLayout.getStyleClass().add("root-container");
 
-        // Create tab pane
-        TabPane tabPane = new TabPane();
-        tabPane.getStyleClass().add("dark-tab-pane");
-        tabPane.getTabs().addAll(
-                new ApkToolTab(this, apkToolService).createAPKToolTab(),
-                new ApkEditorTab(this, apkEditorService).createAPKEditorTab(),
-                new ApkInfoTab(this, apkEditorService).createApkInfoTab()
-        );
-        root.setCenter(tabPane);
+        // Sidebar
+        sidebar = createSidebar();
+        rootLayout.setLeft(sidebar);
 
-        // Create bottom panel
-        root.setBottom(createBottomPanel());
+        // Content Area
+        contentArea = new StackPane();
+        contentArea.setAlignment(Pos.TOP_LEFT);
+        contentArea.setPadding(new Insets(0));
+        rootLayout.setCenter(contentArea);
 
-        Scene scene = new Scene(root, 800, 645);
+        // Bottom Panel (Terminal)
+        rootLayout.setBottom(createBottomPanel());
+
+        // Set default view
+        switchView(apkToolView, (Button) sidebar.getChildren().get(1)); // 0 is label, 1 is first btn
+
+        Scene scene = new Scene(rootLayout, 1000, 700);
 
         // Apply dark theme CSS
         scene.getStylesheets().add(
@@ -90,152 +124,155 @@ public class MainView {
         loadSettings();
     }
 
+    private VBox createSidebar() {
+        VBox sidebar = new VBox(5);
+        sidebar.getStyleClass().add("sidebar");
+        sidebar.setPrefWidth(220);
+
+        Label appTitle = new Label("APKTOOL GUI");
+        appTitle.getStyleClass().add("sidebar-title");
+
+        Button apktoolBtn = createSidebarButton("🔨 Apktool", apkToolView);
+        Button apkEditorBtn = createSidebarButton("⚡ ApkEditor", apkEditorView);
+        Button infoBtn = createSidebarButton("🔍 Info", apkInfoView);
+        Button utilsBtn = createSidebarButton("🔧 Utilities", utilitiesView);
+        Button adbBtn = createSidebarButton("📱 ADB Ops", adbView);
+
+        sidebar.getChildren().addAll(appTitle, apktoolBtn, apkEditorBtn, infoBtn, utilsBtn, adbBtn);
+        
+        // Spacer to push bottom items down
+        Region spacer = new Region();
+        VBox.setVgrow(spacer, Priority.ALWAYS);
+        sidebar.getChildren().add(spacer);
+        
+        // Settings/Theme toggle could go here
+        Button themeBtn = createSidebarButton("🌗 Toggle Theme", null);
+        themeBtn.setOnAction(e -> {
+             // Simple toggle logic for demo, usually needs CSS reload
+             UiUtils.switchTheme(!UiUtils.darkMode);
+        });
+        sidebar.getChildren().add(themeBtn);
+
+        return sidebar;
+    }
+
+    private Button createSidebarButton(String text, Node view) {
+        Button btn = new Button(text);
+        btn.setMaxWidth(Double.MAX_VALUE);
+        btn.getStyleClass().add("sidebar-button");
+        
+        if (view != null) {
+            btn.setOnAction(e -> switchView(view, btn));
+        }
+        return btn;
+    }
+
+    private void switchView(Node view, Button activeBtn) {
+        contentArea.getChildren().clear();
+        contentArea.getChildren().add(view);
+        
+        // Update active state in sidebar
+        sidebar.getChildren().forEach(n -> n.getStyleClass().remove("active"));
+        activeBtn.getStyleClass().add("active");
+    }
+
+    private void initializeUIComponents() {
+        outputArea = new TextArea();
+        outputArea.setEditable(false);
+        outputArea.setWrapText(true);
+        outputArea.setPrefHeight(150);
+        outputArea.getStyleClass().add("terminal-text-area");
+
+        statusLabel = new Label("Ready");
+        statusLabel.getStyleClass().add("status-label");
+        statusLabel.setStyle("-fx-text-fill: #8b949e;");
+
+        progressBar = new ProgressBar();
+        progressBar.setVisible(false);
+        progressBar.setPrefWidth(200);
+        progressBar.getStyleClass().add("progress-bar");
+    }
+
+    private void initializeServices() {
+        commandExecutor = new CommandExecutor(this, this);
+        apkToolService = new ApkToolService(this, this, commandExecutor);
+        apkEditorService = new ApkEditorService(this, commandExecutor);
+        injectDocService = new InjectDocService(this, commandExecutor);
+        zipAlignService = new ZipAlignService(commandExecutor);
+        adbService = new AdbService(this, commandExecutor);
+    }
+
     public void initializeFileChoosers() {
         UiUtils.fileChooser.setTitle("Select APK File");
         UiUtils.fileChooser.getExtensionFilters().addAll(
                 new FileChooser.ExtensionFilter("APK Files", "*.apk"),
                 new FileChooser.ExtensionFilter("All Files", "*.*")
         );
-
         UiUtils.directoryChooser.setTitle("Select Directory");
     }
 
-    private MenuBar createMenuBar(Stage stage) {
-        MenuBar menuBar = new MenuBar();
-        menuBar.getStyleClass().add("dark-menu-bar");
-
-        // File Menu
-        Menu fileMenu = new Menu("File");
-        fileMenu.getStyleClass().add("dark-menu");
-
-        MenuItem clearOutputItem = new MenuItem("Clear Output");
-        clearOutputItem.setOnAction(e -> outputArea.clear());
-
-        MenuItem reloadItem = new MenuItem("Reload Settings");
-        reloadItem.setOnAction(e -> loadSettings());
-
-        SeparatorMenuItem separator1 = new SeparatorMenuItem();
-
-        Menu themeMenu = new Menu("Theme");
-        RadioMenuItem darkThemeItem = new RadioMenuItem("Dark Theme");
-        darkThemeItem.setSelected(true);
-        RadioMenuItem lightThemeItem = new RadioMenuItem("Light Theme");
-
-        ToggleGroup themeGroup = new ToggleGroup();
-        darkThemeItem.setToggleGroup(themeGroup);
-        lightThemeItem.setToggleGroup(themeGroup);
-
-        darkThemeItem.setOnAction(e -> UiUtils.switchTheme(true));
-        lightThemeItem.setOnAction(e -> UiUtils.switchTheme(false));
-
-        themeMenu.getItems().addAll(darkThemeItem, lightThemeItem);
-
-        SeparatorMenuItem separator2 = new SeparatorMenuItem();
-
-        MenuItem exitItem = new MenuItem("Exit");
-        exitItem.setOnAction(e -> Platform.exit());
-
-        fileMenu.getItems().addAll(clearOutputItem, reloadItem, separator1,
-                themeMenu, separator2, exitItem);
-
-        // Tools Menu
-        Menu toolsMenu = new Menu("Tools");
-        toolsMenu.getStyleClass().add("dark-menu");
-
-        MenuItem checkApktoolItem = new MenuItem("Check Apktool");
-        checkApktoolItem.setOnAction(e -> apkToolService.checkApktoolAvailability());
-
-        MenuItem openOutputDirItem = new MenuItem("Open Output Directory");
-        openOutputDirItem.setOnAction(e -> openOutputDirectory());
-
-        toolsMenu.getItems().addAll(checkApktoolItem, openOutputDirItem);
-
-        // Help Menu
-        Menu helpMenu = new Menu("Help");
-        helpMenu.getStyleClass().add("dark-menu");
-
-        MenuItem aboutItem = new MenuItem("About");
-        aboutItem.setOnAction(e -> showAboutDialog());
-
-        MenuItem documentationItem = new MenuItem("Documentation");
-        documentationItem.setOnAction(e -> openDocumentation());
-
-        helpMenu.getItems().addAll(aboutItem, documentationItem);
-
-        menuBar.getMenus().addAll(fileMenu, toolsMenu, helpMenu);
-        return menuBar;
+    // Interface Implementations
+    @Override
+    public void append(String text) {
+        Platform.runLater(() -> {
+            outputArea.appendText(text + "\n");
+            outputArea.setScrollTop(Double.MAX_VALUE);
+        });
     }
 
+    @Override
+    public void showError(String message) {
+        Platform.runLater(() -> {
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Error");
+            alert.setHeaderText(null);
+            alert.setContentText(message);
+            
+            DialogPane dialogPane = alert.getDialogPane();
+            dialogPane.getStylesheets().add(getClass().getResource("/org/codex/apktoolgui/dark-theme.css").toExternalForm());
+            dialogPane.getStyleClass().add("card");
+
+            alert.showAndWait();
+        });
+    }
+
+    @Override
+    public void setStatus(String status) {
+        Platform.runLater(() -> statusLabel.setText(status));
+    }
+
+    @Override
+    public void setProgressVisible(boolean visible) {
+        Platform.runLater(() -> progressBar.setVisible(visible));
+    }
+
+    @Override
+    public void setProgress(double progress) {
+        Platform.runLater(() -> progressBar.setProgress(progress));
+    }
 
     private VBox createBottomPanel() {
-        VBox bottomBox = new VBox(10);
-        bottomBox.setPadding(new Insets(10));
-        bottomBox.getStyleClass().add("bottom-panel");
+        VBox bottomBox = new VBox(0);
+        bottomBox.getStyleClass().add("terminal-drawer");
+        
+        // Header (Status + Clear)
+        HBox header = new HBox(10);
+        header.setAlignment(Pos.CENTER_LEFT);
+        header.getStyleClass().add("terminal-header");
+        
+        Label terminalTitle = new Label("TERMINAL OUTPUT");
+        terminalTitle.setStyle("-fx-font-weight: bold; -fx-font-size: 11px; -fx-text-fill: #8b949e;");
+        
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        
+        Button clearBtn = new Button("Clear"); // Icon could go here
+        clearBtn.getStyleClass().addAll("button-icon");
+        clearBtn.setOnAction(e -> outputArea.clear());
+        
+        header.getChildren().addAll(terminalTitle, spacer, progressBar, statusLabel, clearBtn);
 
-        // Status Bar
-        HBox statusBar = new HBox(10);
-        statusBar.setAlignment(Pos.CENTER_LEFT);
-
-        statusLabel = new Label("Ready");
-        statusLabel.getStyleClass().add("status-label");
-
-        progressBar = new ProgressBar();
-        progressBar.setVisible(false);
-        progressBar.setPrefWidth(200);
-        progressBar.getStyleClass().add("dark-progress-bar");
-
-        // Create copy/clear buttons
-        Button clearButton = UiUtils.createStyledButton("Clear", "small");
-        clearButton.setOnAction(e -> outputArea.clear());
-
-        Button copyButton = UiUtils.createStyledButton("Copy", "small");
-        copyButton.setOnAction(e -> {
-            outputArea.selectAll();
-            outputArea.copy();
-        });
-
-        // Create container for copy/clear buttons
-        HBox buttonContainer = new HBox(4);
-        buttonContainer.setAlignment(Pos.CENTER_RIGHT);
-        buttonContainer.getChildren().addAll(clearButton, copyButton);
-
-        // Create spacers
-        HBox leftSpacer = new HBox();
-        HBox centerSpacer = new HBox();
-        HBox rightSpacer = new HBox();
-
-        // Make center spacer expand to push progress bar to right
-        HBox.setHgrow(centerSpacer, Priority.ALWAYS);
-        HBox.setHgrow(rightSpacer, Priority.SOMETIMES);
-
-        // Add components to status bar
-        statusBar.getChildren().addAll(
-                statusLabel,       // Left: Status text
-                leftSpacer,        // Small space after status
-                centerSpacer,      // Expands to push next items right
-                progressBar,       // Middle-right: Progress bar
-                rightSpacer,       // Space between progress and buttons
-                buttonContainer    // Right: Copy/Clear buttons
-        );
-
-        // Output Area
-        Label outputLabel = new Label("Output Console:");
-        outputLabel.getStyleClass().add("section-label");
-
-        outputArea = new TextArea();
-        outputArea.setEditable(false);
-        outputArea.setWrapText(true);
-        outputArea.setPrefHeight(100);
-        outputArea.getStyleClass().add("dark-text-area");
-
-        bottomBox.getChildren().addAll(
-                new Separator(),
-                outputLabel,
-                outputArea,
-                new Separator(),
-                statusBar  // Status bar now contains everything
-        );
-
+        bottomBox.getChildren().addAll(header, outputArea);
         return bottomBox;
     }
 
@@ -247,68 +284,14 @@ public class MainView {
                 try (InputStream in = Files.newInputStream(configPath)) {
                     props.load(in);
                 }
-
                 apktoolPath = props.getProperty("apktool.path", "apktool.jar");
                 UiUtils.darkMode = Boolean.parseBoolean(props.getProperty("dark.mode", "true"));
-
-                appendOutput("✅ Settings loaded from: " + configPath);
+                append("✅ Settings loaded.");
             }
         } catch (Exception e) {
             // Use defaults
         }
     }
 
-    public static void appendOutput(String text) {
-        Platform.runLater(() -> {
-            outputArea.appendText(text + "\n");
-            outputArea.setScrollTop(Double.MAX_VALUE);
-        });
-    }
-
-    public static void showError(String message) {
-        Platform.runLater(() -> {
-            Alert alert = new Alert(Alert.AlertType.ERROR);
-            alert.setTitle("Error");
-            alert.setHeaderText(null);
-            alert.setContentText(message);
-
-            // Style the alert for dark mode
-            DialogPane dialogPane = alert.getDialogPane();
-            dialogPane.getStyleClass().add("dark-dialog");
-
-            alert.showAndWait();
-        });
-    }
-
-    private void showAboutDialog() {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("About");
-        alert.setHeaderText("Apktool GUI v1.0");
-        alert.setContentText("A modern graphical interface for Apktool\n\n" +
-                "Based on Apktool 2.12.0\n" +
-                "Created with JavaFX\n" +
-                "Dark Theme v1.0\n\n" +
-                "GitHub: https://github.com/yourusername/apktool-gui");
-
-        DialogPane dialogPane = alert.getDialogPane();
-        dialogPane.getStyleClass().add("dark-dialog");
-
-        alert.showAndWait();
-    }
-
-    private void openDocumentation() {
-        try {
-            java.awt.Desktop.getDesktop().browse(new java.net.URI("https://ibotpeaches.github.io/Apktool/"));
-        } catch (Exception e) {
-            showError("Could not open documentation: " + e.getMessage());
-        }
-    }
-
-    private void openOutputDirectory() {
-        try {
-            java.awt.Desktop.getDesktop().open(new File(System.getProperty("user.dir")));
-        } catch (Exception e) {
-            showError("Could not open output directory: " + e.getMessage());
-        }
-    }
+    /* Use append() instead of appendOutput */
 }
