@@ -7,6 +7,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
+import static org.codex.apktoolgui.utils.StringUtils.isBlank;
+import static org.codex.apktoolgui.utils.StringUtils.notBlank;
+
 public class ApkEditorService {
 
     private final UserNotifier userNotifier;
@@ -18,356 +21,179 @@ public class ApkEditorService {
     }
 
     public static String getApkEditorPath() {
-        // Use settings manager for path retrieval
         try {
-            String configuredPath = org.codex.apktoolgui.services.SettingsManager.getInstance()
-                .getSettings().getApkEditorPath();
-            if (configuredPath != null && !configuredPath.isEmpty()) {
-                File apkEditorFile = new File(configuredPath);
-                if (apkEditorFile.exists()) {
-                    return apkEditorFile.getAbsolutePath();
-                }
+            String configured = SettingsManager.getInstance().getSettings().getApkEditorPath();
+            if (notBlank(configured)) {
+                File file = new File(configured);
+                if (file.exists()) return file.getAbsolutePath();
             }
-        } catch (Exception e) {
-            // Fall back to default if settings manager fails
+        } catch (Exception ignored) {
         }
-        
-        // Fallback to default location
-        File apkEditorPath = new File("lib/APKEditor.jar");
-        if (apkEditorPath.exists()) {
-            return apkEditorPath.getAbsolutePath();
-        }
-        return "";
+
+        File defaultPath = new File("lib/APKEditor.jar");
+        return defaultPath.exists() ? defaultPath.getAbsolutePath() : "";
     }
 
-    // 1. Decompile APK
     public void executeDecompile(String apkPath, String outputDir, boolean decompileToXml, boolean loadDex, String dexLibrary) {
-        if (apkPath == null || apkPath.trim().isEmpty()) {
-            userNotifier.showError("Please select an APK file to decompile.");
-            return;
-        }
+        if (!requireApk(apkPath, "decompile")) return;
 
-        List<String> command = new ArrayList<>();
-        command.add("java");
-        command.add("-jar");
-        command.add(getApkEditorPath());
-        command.add("d");
-        command.add("-i");
-        command.add(apkPath);
+        List<String> cmd = buildCommand("d", "-i", apkPath);
+        addOptional(cmd, "-o", outputDir);
+        if (decompileToXml) addArgs(cmd, "-t", "xml");
+        if (loadDex) addArgs(cmd, "-load-dex", "3");
+        addOptional(cmd, "-dex-lib", dexLibrary);
 
-        if (outputDir != null && !outputDir.trim().isEmpty()) {
-            command.add("-o");
-            command.add(outputDir);
-        }
-
-        if (decompileToXml) {
-            command.add("-t");
-            command.add("xml");
-        }
-
-        if (loadDex) {
-            command.add("-load-dex");
-            command.add("3"); // Based on example: -load-dex = 3
-        }
-
-        if (dexLibrary != null && !dexLibrary.trim().isEmpty()) {
-            command.add("-dex-lib");
-            command.add(dexLibrary); // Based on example: -dex-lib = jf
-        }
-
-        commandExecutor.executeCommand(command, "Decompiling APK...");
+        commandExecutor.executeCommand(cmd, "Decompiling APK...");
     }
 
-    // 2. Build APK from decompiled files
     public void executeBuild(String inputDir, String outputApk, boolean buildFromXml, String dexLibrary) {
-        if (inputDir == null || inputDir.trim().isEmpty()) {
+        if (isBlank(inputDir)) {
             userNotifier.showError("Please select a decompiled directory to build.");
             return;
         }
 
-        List<String> command = new ArrayList<>();
-        command.add("java");
-        command.add("-jar");
-        command.add(getApkEditorPath());
-        command.add("b");
-        command.add("-i");
-        command.add(inputDir);
+        List<String> cmd = buildCommand("b", "-i", inputDir);
+        addOptional(cmd, "-o", outputApk);
+        if (buildFromXml) addArgs(cmd, "-t", "xml");
+        addOptional(cmd, "-dex-lib", dexLibrary);
 
-        if (outputApk != null && !outputApk.trim().isEmpty()) {
-            command.add("-o");
-            command.add(outputApk);
-        }
-
-        if (buildFromXml) {
-            command.add("-t");
-            command.add("xml");
-        }
-
-        if (dexLibrary != null && !dexLibrary.trim().isEmpty()) {
-            command.add("-dex-lib");
-            command.add(dexLibrary);
-        }
-
-        commandExecutor.executeCommand(command, "Building APK...");
+        commandExecutor.executeCommand(cmd, "Building APK...");
     }
 
-    // 3. Merge split APKs - Simple version (existing)
     public void executeMerge(String inputPath, String outputApk) {
-        if (inputPath == null || inputPath.trim().isEmpty()) {
+        if (isBlank(inputPath)) {
             userNotifier.showError("Please select input for merging.");
             return;
         }
 
-        List<String> command = new ArrayList<>();
-        command.add("java");
-        command.add("-jar");
-        command.add(getApkEditorPath());
-        command.add("m");
-        command.add("-i");
-        command.add(inputPath);
-
-        if (outputApk != null && !outputApk.trim().isEmpty()) {
-            command.add("-o");
-            command.add(outputApk);
-        }
-
-        commandExecutor.executeCommand(command, "Merging APKs...");
+        List<String> cmd = buildCommand("m", "-i", inputPath);
+        addOptional(cmd, "-o", outputApk);
+        commandExecutor.executeCommand(cmd, "Merging APKs...");
     }
 
-    // 3. Merge split APKs - Advanced version (with more options)
     public void executeMergeAdvanced(String inputPath, String outputApk, String resDir, String extractNativeLibs,
                                      boolean cleanMeta, boolean forceDelete, boolean validateModules, boolean vrd) {
-        if (inputPath == null || inputPath.trim().isEmpty()) {
+        if (isBlank(inputPath)) {
             userNotifier.showError("Please select input for merging.");
             return;
         }
 
-        List<String> command = new ArrayList<>();
-        command.add("java");
-        command.add("-jar");
-        command.add(getApkEditorPath());
-        command.add("m");
-        command.add("-i");
-        command.add(inputPath);
+        List<String> cmd = buildCommand("m", "-i", inputPath);
+        addOptional(cmd, "-o", outputApk);
+        addOptional(cmd, "-res-dir", resDir);
+        addOptional(cmd, "-extractNativeLibs", extractNativeLibs);
 
-        if (outputApk != null && !outputApk.trim().isEmpty()) {
-            command.add("-o");
-            command.add(outputApk);
-        }
+        if (cleanMeta) cmd.add("-clean-meta");
+        if (forceDelete) cmd.add("-f");
+        if (validateModules) cmd.add("-validate-modules");
+        if (vrd) cmd.add("-vrd");
 
-        if (resDir != null && !resDir.trim().isEmpty()) {
-            command.add("-res-dir");
-            command.add(resDir);
-        }
-
-        if (extractNativeLibs != null && !extractNativeLibs.trim().isEmpty()) {
-            command.add("-extractNativeLibs");
-            command.add(extractNativeLibs);
-        }
-
-        if (cleanMeta) {
-            command.add("-clean-meta");
-        }
-
-        if (forceDelete) {
-            command.add("-f");
-        }
-
-        if (validateModules) {
-            command.add("-validate-modules");
-        }
-
-        if (vrd) {
-            command.add("-vrd");
-        }
-
-        commandExecutor.executeCommand(command, "Merging APKs...");
+        commandExecutor.executeCommand(cmd, "Merging APKs...");
     }
 
-    // 4. Refactor obfuscated resources
     public void executeRefactor(String inputApk, String outputApk, String publicXml,
                                 boolean cleanMeta, boolean forceDelete, boolean fixTypes) {
-        if (inputApk == null || inputApk.trim().isEmpty()) {
-            userNotifier.showError("Please select an APK file to refactor.");
-            return;
-        }
+        if (!requireApk(inputApk, "refactor")) return;
 
-        List<String> command = new ArrayList<>();
-        command.add("java");
-        command.add("-jar");
-        command.add(getApkEditorPath());
-        command.add("x");
-        command.add("-i");
-        command.add(inputApk);
+        List<String> cmd = buildCommand("x", "-i", inputApk);
+        addOptional(cmd, "-o", outputApk);
+        addOptional(cmd, "-public-xml", publicXml);
 
-        if (outputApk != null && !outputApk.trim().isEmpty()) {
-            command.add("-o");
-            command.add(outputApk);
-        }
+        if (cleanMeta) cmd.add("-clean-meta");
+        if (forceDelete) cmd.add("-f");
+        if (fixTypes) cmd.add("-fix-types");
 
-        if (publicXml != null && !publicXml.trim().isEmpty()) {
-            command.add("-public-xml");
-            command.add(publicXml);
-        }
-
-        if (cleanMeta) {
-            command.add("-clean-meta");
-        }
-
-        if (forceDelete) {
-            command.add("-f");
-        }
-
-        if (fixTypes) {
-            command.add("-fix-types");
-        }
-
-        commandExecutor.executeCommand(command, "Refactoring APK...");
+        commandExecutor.executeCommand(cmd, "Refactoring APK...");
     }
 
-    // 5. Protect/Obfuscate APK resources
     public void executeProtect(String inputApk, String outputApk, String keepType,
                                boolean confuseZip, String dicDirNames, String dicFileNames,
                                boolean forceDelete, boolean skipManifest) {
-        if (inputApk == null || inputApk.trim().isEmpty()) {
-            userNotifier.showError("Please select an APK file to protect.");
-            return;
-        }
+        if (!requireApk(inputApk, "protect")) return;
 
-        List<String> command = new ArrayList<>();
-        command.add("java");
-        command.add("-jar");
-        command.add(getApkEditorPath());
-        command.add("p");
-        command.add("-i");
-        command.add(inputApk);
+        List<String> cmd = buildCommand("p", "-i", inputApk);
+        addOptional(cmd, "-o", outputApk);
+        addOptional(cmd, "-keep-type", keepType);
+        addOptional(cmd, "-dic-dir-names", dicDirNames);
+        addOptional(cmd, "-dic-file-names", dicFileNames);
 
-        if (outputApk != null && !outputApk.trim().isEmpty()) {
-            command.add("-o");
-            command.add(outputApk);
-        }
+        if (confuseZip) cmd.add("-confuse-zip");
+        if (forceDelete) cmd.add("-f");
+        if (skipManifest) cmd.add("-skip-manifest");
 
-        if (keepType != null && !keepType.trim().isEmpty()) {
-            command.add("-keep-type");
-            command.add(keepType);
-        }
-
-        if (confuseZip) {
-            command.add("-confuse-zip");
-        }
-
-        if (dicDirNames != null && !dicDirNames.trim().isEmpty()) {
-            command.add("-dic-dir-names");
-            command.add(dicDirNames);
-        }
-
-        if (dicFileNames != null && !dicFileNames.trim().isEmpty()) {
-            command.add("-dic-file-names");
-            command.add(dicFileNames);
-        }
-
-        if (forceDelete) {
-            command.add("-f");
-        }
-
-        if (skipManifest) {
-            command.add("-skip-manifest");
-        }
-
-        commandExecutor.executeCommand(command, "Protecting APK...");
+        commandExecutor.executeCommand(cmd, "Protecting APK...");
     }
 
-    // 6. Get APK information
-    public void executeGetInfo(String inputApk, String outputFile,boolean verbose,
+    public void executeGetInfo(String inputApk, String outputFile, boolean verbose,
                                String filterType, String framework, String frameworkVersion, String resourceId,
-                               String xmlStrings, String xmlTree,
-                               String outputType,boolean activities, boolean appClass,
-                               boolean appIcon, boolean appName, boolean appRoundIcon,
-                               boolean configurations, boolean dex, boolean forceDelete,
-                               boolean languages, boolean listFiles, boolean listXmlFiles,
-                               boolean locales, boolean minSdkVersion, boolean packageInfo,
-                               boolean permissions, boolean resources, boolean signatures,
-                               boolean signaturesBase64,  boolean targetSdkVersion,
-                               boolean versionCode, boolean versionName,Consumer<String> outputConsumer) {
+                               String xmlStrings, String xmlTree, String outputType,
+                               boolean activities, boolean appClass, boolean appIcon, boolean appName,
+                               boolean appRoundIcon, boolean configurations, boolean dex, boolean forceDelete,
+                               boolean languages, boolean listFiles, boolean listXmlFiles, boolean locales,
+                               boolean minSdkVersion, boolean packageInfo, boolean permissions, boolean resources,
+                               boolean signatures, boolean signaturesBase64, boolean targetSdkVersion,
+                               boolean versionCode, boolean versionName, Consumer<String> outputConsumer) {
 
-        if (inputApk == null || inputApk.trim().isEmpty()) {
-            userNotifier.showError("Please select an APK file to get information.");
-            return;
-        }
+        if (!requireApk(inputApk, "get information")) return;
 
-        List<String> command = new ArrayList<>();
-        command.add("java");
-        command.add("-jar");
-        command.add(getApkEditorPath());
-        command.add("info");
-        command.add("-i");
-        command.add(inputApk);
+        List<String> cmd = buildCommand("info", "-i", inputApk);
+        addOptional(cmd, "-o", outputFile);
+        addOptional(cmd, "-filter-type", filterType);
+        addOptional(cmd, "-framework", framework);
+        addOptional(cmd, "-framework-version", frameworkVersion);
+        addOptional(cmd, "-res", resourceId);
+        addOptional(cmd, "-xmlstrings", xmlStrings);
+        addOptional(cmd, "-xmltree", xmlTree);
+        addOptional(cmd, "-t", outputType);
 
-        if (outputFile != null && !outputFile.trim().isEmpty()) {
-            command.add("-o");
-            command.add(outputFile);
-        }
+        if (verbose) cmd.add("-v");
+        if (activities) cmd.add("-activities");
+        if (appClass) cmd.add("-app-class");
+        if (appIcon) cmd.add("-app-icon");
+        if (appName) cmd.add("-app-name");
+        if (appRoundIcon) cmd.add("-app-round-icon");
+        if (configurations) cmd.add("-configurations");
+        if (dex) cmd.add("-dex");
+        if (forceDelete) cmd.add("-f");
+        if (languages) cmd.add("-languages");
+        if (listFiles) cmd.add("-list-files");
+        if (listXmlFiles) cmd.add("-list-xml-files");
+        if (locales) cmd.add("-locales");
+        if (minSdkVersion) cmd.add("-min-sdk-version");
+        if (packageInfo) cmd.add("-package");
+        if (permissions) cmd.add("-permissions");
+        if (resources) cmd.add("-resources");
+        if (signatures) cmd.add("-signatures");
+        if (signaturesBase64) cmd.add("-signatures-base64");
+        if (targetSdkVersion) cmd.add("-target-sdk-version");
+        if (versionCode) cmd.add("-version-code");
+        if (versionName) cmd.add("-version-name");
 
-        if (filterType != null && !filterType.trim().isEmpty()) {
-            command.add("-filter-type");
-            command.add(filterType);
-        }
-
-        if (framework != null && !framework.trim().isEmpty()) {
-            command.add("-framework");
-            command.add(framework);
-        }
-
-        if (frameworkVersion != null && !frameworkVersion.trim().isEmpty()) {
-            command.add("-framework-version");
-            command.add(frameworkVersion);
-        }
-
-        if (resourceId != null && !resourceId.trim().isEmpty()) {
-            command.add("-res");
-            command.add(resourceId);
-        }
-
-        if (xmlStrings != null && !xmlStrings.trim().isEmpty()) {
-            command.add("-xmlstrings");
-            command.add(xmlStrings);
-        }
-
-        if (xmlTree != null && !xmlTree.trim().isEmpty()) {
-            command.add("-xmltree");
-            command.add(xmlTree);
-        }
-
-        if (outputType != null && !outputType.trim().isEmpty()) {
-            command.add("-t");
-            command.add(outputType);
-        }
-
-        // Flags
-        if (verbose) command.add("-v");
-        if (activities) command.add("-activities");
-        if (appClass) command.add("-app-class");
-        if (appIcon) command.add("-app-icon");
-        if (appName) command.add("-app-name");
-        if (appRoundIcon) command.add("-app-round-icon");
-        if (configurations) command.add("-configurations");
-        if (dex) command.add("-dex");
-        if (forceDelete) command.add("-f");
-        if (languages) command.add("-languages");
-        if (listFiles) command.add("-list-files");
-        if (listXmlFiles) command.add("-list-xml-files");
-        if (locales) command.add("-locales");
-        if (minSdkVersion) command.add("-min-sdk-version");
-        if (packageInfo) command.add("-package");
-        if (permissions) command.add("-permissions");
-        if (resources) command.add("-resources");
-        if (signatures) command.add("-signatures");
-        if (signaturesBase64) command.add("-signatures-base64");
-        if (targetSdkVersion) command.add("-target-sdk-version");
-        if (versionCode) command.add("-version-code");
-        if (versionName) command.add("-version-name");
-
-        commandExecutor.executeCommand(command, "Getting APK information...",outputConsumer);
+        commandExecutor.executeCommand(cmd, "Getting APK information...", outputConsumer);
     }
 
+    private List<String> buildCommand(String... args) {
+        List<String> cmd = new ArrayList<>();
+        cmd.add("java");
+        cmd.add("-jar");
+        cmd.add(getApkEditorPath());
+        for (String arg : args) cmd.add(arg);
+        return cmd;
+    }
+
+    private void addOptional(List<String> cmd, String flag, String value) {
+        if (notBlank(value)) addArgs(cmd, flag, value);
+    }
+
+    private void addArgs(List<String> cmd, String... args) {
+        for (String arg : args) cmd.add(arg);
+    }
+
+    private boolean requireApk(String apkPath, String action) {
+        if (isBlank(apkPath)) {
+            userNotifier.showError("Please select an APK file to " + action + ".");
+            return false;
+        }
+        return true;
+    }
 }

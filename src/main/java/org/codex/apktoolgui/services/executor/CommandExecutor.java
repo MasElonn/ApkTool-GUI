@@ -12,6 +12,7 @@ import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
 public class CommandExecutor {
+
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final LogOutput logOutput;
     private final StatusHandler statusHandler;
@@ -27,13 +28,13 @@ public class CommandExecutor {
 
     public void executeCommand(List<String> command, String statusMessage, Consumer<String> outputConsumer) {
         executor.submit(() -> {
-            Platform.runLater(() -> {
-                if(statusHandler != null) {
+            runOnUi(() -> {
+                if (statusHandler != null) {
                     statusHandler.setProgressVisible(true);
-                    statusHandler.setProgress(-1); // Indeterminate
+                    statusHandler.setProgress(-1);
                     statusHandler.setStatus(statusMessage);
                 }
-                if(logOutput != null) {
+                if (logOutput != null) {
                     logOutput.append("> " + String.join(" ", command) + "\n");
                 }
             });
@@ -43,66 +44,58 @@ public class CommandExecutor {
                 pb.redirectErrorStream(true);
                 Process process = pb.start();
 
-                try (BufferedReader reader = new BufferedReader(
-                        new InputStreamReader(process.getInputStream()))) {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
                     String line;
                     while ((line = reader.readLine()) != null) {
-                        final String outputLine = line;
-                        
-                        Platform.runLater(() -> {
-                            // send to custom consumer if provided
-                            if (outputConsumer != null) {
-                                outputConsumer.accept(outputLine + "\n");
-                                // Also log to main output if consumer is present? 
-                                // Original logic said: if (outputConsumer != null) accept else ... wait
-                                // Original:
-                                // if (outputConsumer != null) accept
-                                // MainView.outputArea.appendText (ALWAYS)
-                                // Only explicit logOutput if it's not null.
-                            }
-                            
-                            if (logOutput != null) {
-                                logOutput.append(outputLine + "\n");
-                            }
+                        String outputLine = line;
+                        runOnUi(() -> {
+                            if (outputConsumer != null) outputConsumer.accept(outputLine + "\n");
+                            if (logOutput != null) logOutput.append(outputLine + "\n");
                         });
                     }
                 }
 
                 int exitCode = process.waitFor();
-
-                Platform.runLater(() -> {
-                    if(statusHandler != null) statusHandler.setProgressVisible(false);
-                    
-                    if (exitCode == 0) {
-                        if(statusHandler != null) statusHandler.setStatus("Command completed successfully");
-                        if(logOutput != null) logOutput.append("\n[SUCCESS] Command completed with exit code: " + exitCode + "\n");
-
-                    } else {
-                        if(statusHandler != null) statusHandler.setStatus("Command failed with exit code: " + exitCode);
-                        if(logOutput != null) logOutput.append("\n[ERROR] Command failed with exit code: " + exitCode + "\n");
-                        if (outputConsumer != null) {
-                            outputConsumer.accept("\n[ERROR] Command failed with exit code: " + exitCode + "\n");
-                        }
-                    }
-                    if(logOutput != null) logOutput.append("=".repeat(80) + "\n\n");
-
-                });
+                runOnUi(() -> handleCompletion(exitCode, outputConsumer));
 
             } catch (Exception e) {
-                Platform.runLater(() -> {
-                    if(statusHandler != null) statusHandler.setProgressVisible(false);
-                    if(statusHandler != null) statusHandler.setStatus("Error executing command");
-                    if(logOutput != null) logOutput.append("\n[EXCEPTION] " + e.getMessage() + "\n");
-                    if (outputConsumer != null) {
-                        outputConsumer.accept("\n[EXCEPTION] " + e.getMessage() + "\n");
-                    }
-                    e.printStackTrace();
-                });
+                runOnUi(() -> handleError(e, outputConsumer));
             }
         });
     }
 
     public void shutdown() {
         executor.shutdownNow();
+    }
+
+    private void handleCompletion(int exitCode, Consumer<String> outputConsumer) {
+        if (statusHandler != null) statusHandler.setProgressVisible(false);
+
+        if (exitCode == 0) {
+            if (statusHandler != null) statusHandler.setStatus("Command completed successfully");
+            if (logOutput != null) logOutput.append("\n[SUCCESS] Command completed with exit code: " + exitCode + "\n");
+        } else {
+            String error = "\n[ERROR] Command failed with exit code: " + exitCode + "\n";
+            if (statusHandler != null) statusHandler.setStatus("Command failed with exit code: " + exitCode);
+            if (logOutput != null) logOutput.append(error);
+            if (outputConsumer != null) outputConsumer.accept(error);
+        }
+
+        if (logOutput != null) logOutput.append("=".repeat(80) + "\n\n");
+    }
+
+    private void handleError(Exception e, Consumer<String> outputConsumer) {
+        String error = "\n[EXCEPTION] " + e.getMessage() + "\n";
+        if (statusHandler != null) {
+            statusHandler.setProgressVisible(false);
+            statusHandler.setStatus("Error executing command");
+        }
+        if (logOutput != null) logOutput.append(error);
+        if (outputConsumer != null) outputConsumer.accept(error);
+        e.printStackTrace();
+    }
+
+    private void runOnUi(Runnable action) {
+        Platform.runLater(action);
     }
 }

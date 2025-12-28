@@ -61,6 +61,7 @@ public class MainView implements LogOutput, UserNotifier, StatusHandler {
         this.primaryStage = primaryStage;
     }
 
+
     public void stop() {
         if (commandExecutor != null) {
             commandExecutor.shutdown();

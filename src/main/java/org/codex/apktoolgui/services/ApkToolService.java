@@ -13,6 +13,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
+import static org.codex.apktoolgui.utils.StringUtils.isBlank;
+import static org.codex.apktoolgui.utils.StringUtils.notBlank;
+
 public class ApkToolService {
 
     private final LogOutput logOutput;
@@ -25,27 +28,18 @@ public class ApkToolService {
         this.commandExecutor = commandExecutor;
     }
 
-    public static String getApkToolPath(){
-        // Use settings manager for path retrieval
+    public static String getApkToolPath() {
         try {
-            String configuredPath = org.codex.apktoolgui.services.SettingsManager.getInstance()
-                .getSettings().getApktoolPath();
-            if (configuredPath != null && !configuredPath.isEmpty()) {
-                File apktoolFile = new File(configuredPath);
-                if (apktoolFile.exists()) {
-                    return apktoolFile.getAbsolutePath();
-                }
+            String configured = SettingsManager.getInstance().getSettings().getApktoolPath();
+            if (notBlank(configured)) {
+                File file = new File(configured);
+                if (file.exists()) return file.getAbsolutePath();
             }
-        } catch (Exception e) {
-            // Fall back to default if settings manager fails
+        } catch (Exception ignored) {
         }
-        
-        // Fallback to default location
-        File apktoolPath = new File("lib/apktool.jar");
-        if(apktoolPath.exists()){
-            return apktoolPath.getAbsolutePath();
-        }
-        return "";
+
+        File defaultPath = new File("lib/apktool.jar");
+        return defaultPath.exists() ? defaultPath.getAbsolutePath() : "";
     }
 
     public void executeDecode(String apkPath, String outputPath, String frameworkPath,
@@ -53,125 +47,71 @@ public class ApkToolService {
                               boolean noAssets, boolean onlyManifest, boolean force,
                               boolean noDebug, boolean matchOriginal, boolean keepBroken,
                               boolean onlyMainClasses) {
-        if (apkPath == null || apkPath.trim().isEmpty()) {
+        if (isBlank(apkPath)) {
             userNotifier.showError("Please select an APK file to decode.");
             return;
         }
 
-        List<String> command = new ArrayList<>();
-        command.add("java");
-        command.add("-jar");
-        command.add(getApkToolPath());
-        command.add("d");
+        List<String> cmd = buildCommand("d");
+        addOptional(cmd, "-o", outputPath);
+        addOptional(cmd, "-p", frameworkPath);
+        addOptional(cmd, "--api-level", apiLevel);
+        addOptional(cmd, "-j", jobs);
 
-        if (outputPath != null && !outputPath.trim().isEmpty()) {
-            command.add("-o");
-            command.add(outputPath);
-        }
+        if (force) cmd.add("-f");
+        if (noRes) cmd.add("-r");
+        if (noSrc) cmd.add("-s");
+        if (noAssets) cmd.add("--no-assets");
+        if (onlyManifest) cmd.add("--only-manifest");
+        if (noDebug) cmd.add("-b");
+        if (matchOriginal) cmd.add("-m");
+        if (keepBroken) cmd.add("-k");
+        if (onlyMainClasses) cmd.add("--only-main-classes");
 
-        if (frameworkPath != null && !frameworkPath.trim().isEmpty()) {
-            command.add("-p");
-            command.add(frameworkPath);
-        }
-
-        if (apiLevel != null && !apiLevel.trim().isEmpty()) {
-            command.add("--api-level");
-            command.add(apiLevel);
-        }
-
-        if (jobs != null && !jobs.trim().isEmpty()) {
-            command.add("-j");
-            command.add(jobs);
-        }
-
-        if (force) command.add("-f");
-        if (noRes) command.add("-r");
-        if (noSrc) command.add("-s");
-        if (noAssets) command.add("--no-assets");
-        if (onlyManifest) command.add("--only-manifest");
-        if (noDebug) command.add("-b");
-        if (matchOriginal) command.add("-m");
-        if (keepBroken) command.add("-k");
-        if (onlyMainClasses) command.add("--only-main-classes");
-        command.add(apkPath);
-
-        commandExecutor.executeCommand(command, "Decoding APK...");
+        cmd.add(apkPath);
+        commandExecutor.executeCommand(cmd, "Decoding APK...");
     }
-
 
     public void executeBuild(String inputDir, String outputPath, String aaptPath,
                              String frameworkPath, boolean debug, boolean copyOriginal,
                              boolean force, boolean noApk, boolean noCrunch,
                              boolean useAapt1, boolean netSec) {
-        if (inputDir == null || inputDir.trim().isEmpty()) {
+        if (isBlank(inputDir)) {
             userNotifier.showError("Please select a project directory to build.");
             return;
         }
 
-        List<String> command = new ArrayList<>();
-        command.add("java");
-        command.add("-jar");
-        command.add(getApkToolPath());
-        command.add("b");
+        List<String> cmd = buildCommand("b");
+        addOptional(cmd, "-o", outputPath);
+        addOptional(cmd, "-a", aaptPath);
+        addOptional(cmd, "-p", frameworkPath);
 
-        if (outputPath != null && !outputPath.trim().isEmpty()) {
-            command.add("-o");
-            command.add(outputPath);
-        }
+        if (debug) cmd.add("-d");
+        if (copyOriginal) cmd.add("-c");
+        if (force) cmd.add("-f");
+        if (noApk) cmd.add("-na");
+        if (noCrunch) cmd.add("-nc");
+        if (useAapt1) cmd.add("--use-aapt1");
+        if (netSec) cmd.add("-n");
 
-        if (aaptPath != null && !aaptPath.trim().isEmpty()) {
-            command.add("-a");
-            command.add(aaptPath);
-        }
-
-        if (frameworkPath != null && !frameworkPath.trim().isEmpty()) {
-            command.add("-p");
-            command.add(frameworkPath);
-        }
-
-        if (debug) command.add("-d");
-        if (copyOriginal) command.add("-c");
-        if (force) command.add("-f");
-        if (noApk) command.add("-na");
-        if (noCrunch) command.add("-nc");
-        if (useAapt1) command.add("--use-aapt1");
-        if (netSec) command.add("-n");
-
-        command.add(inputDir);
-
-        commandExecutor.executeCommand(command, "Building APK...");
+        cmd.add(inputDir);
+        commandExecutor.executeCommand(cmd, "Building APK...");
     }
 
     public void executeInstallFramework(String frameworkApk, String tag) {
-        if (frameworkApk == null || frameworkApk.trim().isEmpty()) {
+        if (isBlank(frameworkApk)) {
             userNotifier.showError("Please select a framework APK file.");
             return;
         }
 
-        List<String> command = new ArrayList<>();
-        command.add("java");
-        command.add("-jar");
-        command.add(getApkToolPath());
-        command.add("if");
-
-        if (tag != null && !tag.trim().isEmpty()) {
-            command.add("-t");
-            command.add(tag);
-        }
-
-        command.add(frameworkApk);
-
-        commandExecutor.executeCommand(command, "Installing framework...");
+        List<String> cmd = buildCommand("if");
+        addOptional(cmd, "-t", tag);
+        cmd.add(frameworkApk);
+        commandExecutor.executeCommand(cmd, "Installing framework...");
     }
 
     public void executeListFrameworks() {
-        List<String> command = new ArrayList<>();
-        command.add("java");
-        command.add("-jar");
-        command.add(getApkToolPath());
-        command.add("lf");
-
-        commandExecutor.executeCommand(command, "Listing frameworks...");
+        commandExecutor.executeCommand(buildCommand("lf"), "Listing frameworks...");
     }
 
     public void executeEmptyFrameworkDir() {
@@ -181,79 +121,49 @@ public class ApkToolService {
         confirm.setContentText("This will delete ALL framework files. Are you sure?");
 
         if (confirm.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK) {
-            List<String> command = new ArrayList<>();
-            command.add("java");
-            command.add("-jar");
-            command.add(getApkToolPath());
-            command.add("efd");
-            command.add("-f");
-
-            commandExecutor.executeCommand(command, "Emptying framework directory...");
+            List<String> cmd = buildCommand("efd", "-f");
+            commandExecutor.executeCommand(cmd, "Emptying framework directory...");
         }
     }
 
-    public  void executePublicizeResources(String arscPath) {
-        if (arscPath == null || arscPath.trim().isEmpty()) {
+    public void executePublicizeResources(String arscPath) {
+        if (isBlank(arscPath)) {
             userNotifier.showError("Please select an ARSC file.");
             return;
         }
 
-        List<String> command = new ArrayList<>();
-        command.add("java");
-        command.add("-jar");
-        command.add(getApkToolPath());
-        command.add("pr");
-        command.add(arscPath);
-
-        commandExecutor.executeCommand(command, "Publicizing resources...");
+        List<String> cmd = buildCommand("pr", arscPath);
+        commandExecutor.executeCommand(cmd, "Publicizing resources...");
     }
 
     public void executeVersionCheck() {
-        List<String> command = new ArrayList<>();
-        command.add("java");
-        command.add("-jar");
-        command.add(getApkToolPath());
-        command.add("v");
-
-        commandExecutor.executeCommand(command, "Checking version...");
+        commandExecutor.executeCommand(buildCommand("v"), "Checking version...");
     }
 
     public void executeHelp() {
-        List<String> command = new ArrayList<>();
-        command.add("java");
-        command.add("-jar");
-        command.add(getApkToolPath());
-        command.add("h");
-
-        commandExecutor.executeCommand(command, "Showing help...");
+        commandExecutor.executeCommand(buildCommand("h"), "Showing help...");
     }
 
-    // Utility Methods
     public void checkApktoolAvailability() {
         File apktoolFile = new File(getApkToolPath());
         if (apktoolFile.exists()) {
             logOutput.append("✅ Apktool found at: " + getApkToolPath());
-        } else {
-            try {
-                Process process = new ProcessBuilder("apktool", "version").start();
-                if (process.waitFor() == 0) {
-                    // This seems redundant or just checking if it runs? 
-                    // Keeping original logic structure basically.
-                    getApkToolPath().isEmpty(); 
-                    logOutput.append("✅ Apktool found in system PATH");
-                } else {
-                    userNotifier.showError("❌ Apktool not found! Please download apktool.jar and set the path in Settings.");
-                }
-            } catch (Exception e) {
+            return;
+        }
+
+        try {
+            Process process = new ProcessBuilder("apktool", "version").start();
+            if (process.waitFor() == 0) {
+                logOutput.append("✅ Apktool found in system PATH");
+            } else {
                 userNotifier.showError("❌ Apktool not found! Please download apktool.jar and set the path in Settings.");
             }
+        } catch (Exception e) {
+            userNotifier.showError("❌ Apktool not found! Please download apktool.jar and set the path in Settings.");
         }
     }
 
-    public void saveSettings(String ApktoolPath, String defaultDir) {
-        // Param ApktoolPath is confusingly named/unused effectively in original, but keeping signature for now if needed?
-        // Actually I should probably clean that up too but let's stick to the main goal first.
-        
+    public void saveSettings(String apktoolPath, String defaultDir) {
         try {
             Properties props = new Properties();
             props.setProperty("apktool.path", getApkToolPath());
@@ -264,10 +174,25 @@ public class ApkToolService {
             try (OutputStream out = Files.newOutputStream(configPath)) {
                 props.store(out, "Apktool GUI Settings");
             }
-
             logOutput.append("✅ Settings saved to: " + configPath);
         } catch (Exception e) {
             userNotifier.showError("Failed to save settings: " + e.getMessage());
+        }
+    }
+
+    private List<String> buildCommand(String... args) {
+        List<String> cmd = new ArrayList<>();
+        cmd.add("java");
+        cmd.add("-jar");
+        cmd.add(getApkToolPath());
+        for (String arg : args) cmd.add(arg);
+        return cmd;
+    }
+
+    private void addOptional(List<String> cmd, String flag, String value) {
+        if (notBlank(value)) {
+            cmd.add(flag);
+            cmd.add(value);
         }
     }
 }
