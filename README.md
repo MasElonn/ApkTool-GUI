@@ -1,62 +1,74 @@
-# ApkTool GUI
+<div align="center">
 
-A GUI wrapper for common Android reverse engineering tools. Built with JavaFX.
+# 📱 ApkTool GUI
 
-## Features
+**A modern, feature-rich GUI wrapper for common Android reverse engineering tools.**  
+*Built with JavaFX and Passion*
 
-**APK Decompilation**
-- Decode APKs with apktool (with options like no-resources, no-sources, force, etc.)
-- Rebuild APKs from decompiled projects
-- Manage framework files
+![Java](https://img.shields.io/badge/Java-21+-orange?style=flat-square&logo=openjdk)
+![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey?style=flat-square)
+![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
+![Status](https://img.shields.io/badge/Status-Active-green?style=flat-square)
 
-**APK Signing**
-- Sign with a debug key (auto-generated) or your own keystore
-- Supports v1, v2, v3, v4 signature schemes
-- Verify existing signatures
+</div>
 
-**APK Editor**
-- Merge split APKs into a single APK
-- Refactor obfuscated resources
-- Protect/obfuscate resources
+---
 
-**AAPT/AAPT2**
-- Dump badging, permissions, resources
-- Dump XML tree
-- List APK contents
+## ✨ Features
 
-**ADB**
-- Connect to devices (USB and wireless)
-- Install/uninstall apps
-- Pull APKs from device
-- Simple terminal for shell commands
+<div align="center">
 
-**Other**
-- ZipAlign support
-- Dark and light themes
-- Configurable tool paths
+| 📦 **APK Decompilation** | 🔑 **APK Signing** |
+|:---|:---|
+| • Decode APKs with `apktool`<br>• Rebuild APKs from source<br>• Framework file management<br>• Custom decode options | • Sign with auto-generated debug keys<br>• Custom keystore support<br>• v1, v2, v3, v4 signature schemes<br>• Verify signatures |
 
-## Requirements
+| 🔧 **APK Editor** | 📱 **ADB Tools** |
+|:---|:---|
+| • Merge split APKs<br>• Refactor obfuscated resources<br>• Protect/Obfuscate resources | • Device connection manager<br>• Install/Uninstall apps<br>• Pull APKs directly from device<br>• Built-in shell terminal |
 
-- Java 21 or higher
+| 📄 **AAPT / AAPT2** | 🛠️ **Utilities** |
+|:---|:---|
+| • Dump badging & permissions<br>• Explore XML trees<br>• List APK contents | • `ZipAlign` integration<br>• Dark & Light themes<br>• Configurable tool paths |
 
-Optional tools (place in `lib/` or configure paths in Settings):
-- `apktool.jar`
-- `APKEditor.jar`
-- `apksigner.jar`
-- `aapt` / `aapt2`
-- `zipalign`
-- `platform-tools/adb`
+</div>
 
-## Build
+## 🖼️ Screenshots
 
+<div align="center">
+  <img src="images/gui-dark.png" alt="Dark Theme" width="45%" border="1" />
+  <img src="images/gui-light.png" alt="Light Theme" width="45%" border="1" />
+  <br>
+  <i>Experience both Dark and Light themes</i>
+</div>
+
+## 🚀 Releases
+
+> [!NOTE]
+> **Coming Soon**  
+>
+## 📋 Requirements
+
+- **Java Runtime**: Java 21 or higher
+- **External Tools** (Optional - placed in `resources/` or configured via Settings):
+  - `apktool.jar`
+  - `APKEditor.jar`
+  - `apksigner.jar`
+  - `aapt` / `aapt2`
+  - `zipalign`
+  - `platform-tools/adb`
+
+## 🔨 Build & Run
+
+**Build from source:**
 ```bash
 ./mvnw clean package
 ```
+*Creates `target/ApktoolGui-1.0-SNAPSHOT-shaded.jar`*
 
-This creates `target/ApktoolGui-1.0-SNAPSHOT-shaded.jar`
-
-## Run
-
+**Run the application:**
 ```bash
 java -jar target/ApktoolGui-1.0-SNAPSHOT-shaded.jar
 ```
+
+---
+

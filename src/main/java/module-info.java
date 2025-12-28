@@ -1,4 +1,4 @@
-module org.codex.apktoolgui {
+module org.apkutility.app {
     requires javafx.controls;
     requires javafx.fxml;
     requires javafx.web;
@@ -11,10 +11,16 @@ module org.codex.apktoolgui {
     requires java.logging;
     requires java.desktop;
 
-    opens org.codex.apktoolgui to javafx.fxml;
-    exports org.codex.apktoolgui;
-    exports org.codex.apktoolgui.views;
-    opens org.codex.apktoolgui.views to javafx.fxml;
-    exports org.codex.apktoolgui.services;
-    opens org.codex.apktoolgui.services to javafx.fxml;
+    opens org.apkutility.app to javafx.fxml;
+    exports org.apkutility.app;
+    exports org.apkutility.app.views;
+    opens org.apkutility.app.views to javafx.fxml;
+    exports org.apkutility.app.services;
+    opens org.apkutility.app.services to javafx.fxml;
+    exports org.apkutility.app.utils;
+    opens org.apkutility.app.utils to javafx.fxml;
+    exports org.apkutility.app.views.tabs;
+    opens org.apkutility.app.views.tabs to javafx.fxml;
+    exports org.apkutility.app.config;
+    opens org.apkutility.app.config to javafx.fxml;
 }
