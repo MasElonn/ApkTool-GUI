@@ -45,8 +45,7 @@
 ## 🚀 Releases
 
 > [!NOTE]
-> **Beta Release**
->[View all releases](github.com/MasElonn/ApkTool-GUI/releases)
+>[View all releases](https://github.com/MasElonn/ApkTool-GUI/releases/tag/v1.0.0-beta)
 >
 ## 📋 Requirements
 
