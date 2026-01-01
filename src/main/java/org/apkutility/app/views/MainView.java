@@ -83,7 +83,9 @@ public class MainView implements LogOutput, UserNotifier, StatusHandler {
         utilitiesView = new UtilitiesTab(this, injectDocService, zipAlignService).createContent();
         adbView = new AdbTab(this, adbService).createContent();
         apkSignerView = new ApkSignerTab(this, this, apkSignerService, aaptService).createContent();
-        settingsView = new SettingsTab(this, this, settingsManager).createContent();
+        SettingsTab settingsTab = new SettingsTab(this, this, settingsManager);
+        settingsTab.setApkToolService(apkToolService);
+        settingsView = settingsTab.createContent();
 
         // Create Main Layout
         rootLayout = new BorderPane();

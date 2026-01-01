@@ -7,6 +7,7 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
+import org.apkutility.app.services.ApkToolService;
 import org.apkutility.app.services.LogOutput;
 import org.apkutility.app.services.SettingsManager;
 import org.apkutility.app.services.UserNotifier;
@@ -22,6 +23,7 @@ public class SettingsTab {
     private final LogOutput logOutput;
     private final UserNotifier userNotifier;
     private final SettingsManager settingsManager;
+    private ApkToolService apkToolService;
     
     // Tool Path Fields
     private TextField apktoolPathField;
@@ -50,6 +52,10 @@ public class SettingsTab {
     private CheckBox darkModeCheckBox;
     private CheckBox autoSaveCheckBox;
     
+    // Framework Manager Controls
+    private TextField frameworkApkField;
+    private TextField frameworkTagField;
+    
     public SettingsTab(LogOutput logOutput, UserNotifier userNotifier, SettingsManager settingsManager) {
         this.logOutput = logOutput;
         this.userNotifier = userNotifier;
@@ -71,11 +77,12 @@ public class SettingsTab {
         // Create sections
         Node toolPathsSection = createToolPathsSection();
         Node frameworkSection = createFrameworkSection();
+        Node frameworkManagerSection = createFrameworkManagerSection();
         Node preferencesSection = createPreferencesSection();
         Node actionsSection = createActionsSection();
         
         ScrollPane scrollPane = new ScrollPane();
-        VBox content = new VBox(20, titleLabel, descLabel, toolPathsSection, frameworkSection, preferencesSection, actionsSection);
+        VBox content = new VBox(20, titleLabel, descLabel, toolPathsSection, frameworkSection, frameworkManagerSection, preferencesSection, actionsSection);
         content.setPadding(new Insets(10));
         scrollPane.setContent(content);
         scrollPane.setFitToWidth(true);
@@ -162,6 +169,110 @@ public class SettingsTab {
         
         section.getChildren().addAll(sectionTitle, frameworkRow, workingDirRow);
         return section;
+    }
+    
+    private Node createFrameworkManagerSection() {
+        VBox section = new VBox(15);
+        section.getStyleClass().add("card");
+        section.setPadding(new Insets(20));
+        
+        Label sectionTitle = new Label("📦 Framework Manager");
+        sectionTitle.getStyleClass().add("subsection-title");
+        
+        Label desc = new Label("Install and manage apktool framework files");
+        desc.getStyleClass().add("field-description");
+        
+        // Framework APK picker
+        HBox apkRow = new HBox(10);
+        apkRow.setAlignment(Pos.CENTER_LEFT);
+        Label apkLabel = new Label("Framework APK:");
+        apkLabel.setPrefWidth(150);
+        apkLabel.getStyleClass().add("field-label");
+        
+        frameworkApkField = new TextField();
+        frameworkApkField.setPromptText("Select framework APK file...");
+        frameworkApkField.setPrefWidth(400);
+        HBox.setHgrow(frameworkApkField, Priority.ALWAYS);
+        
+        Button browseApkBtn = new Button("📂");
+        browseApkBtn.getStyleClass().add("button-icon");
+        browseApkBtn.setOnAction(e -> browseFrameworkApk());
+        apkRow.getChildren().addAll(apkLabel, frameworkApkField, browseApkBtn);
+        
+        // Tag field
+        HBox tagRow = new HBox(10);
+        tagRow.setAlignment(Pos.CENTER_LEFT);
+        Label tagLabel = new Label("Tag (optional):");
+        tagLabel.setPrefWidth(150);
+        tagLabel.getStyleClass().add("field-label");
+        
+        frameworkTagField = new TextField();
+        frameworkTagField.setPromptText("e.g., samsung, miui");
+        frameworkTagField.setPrefWidth(400);
+        HBox.setHgrow(frameworkTagField, Priority.ALWAYS);
+        tagRow.getChildren().addAll(tagLabel, frameworkTagField);
+        
+        // Action buttons
+        HBox actions = new HBox(10);
+        actions.setAlignment(Pos.CENTER_LEFT);
+        actions.setPadding(new Insets(10, 0, 0, 0));
+        
+        Button installBtn = new Button("📥 Install Framework");
+        installBtn.getStyleClass().add("button-primary");
+        installBtn.setOnAction(e -> installFramework());
+        
+        Button listBtn = new Button("📋 List Frameworks");
+        listBtn.getStyleClass().add("button-secondary");
+        listBtn.setOnAction(e -> listFrameworks());
+        
+        Button emptyBtn = new Button("🗑️ Empty Framework Dir");
+        emptyBtn.getStyleClass().add("button-secondary");
+        emptyBtn.setOnAction(e -> emptyFrameworkDir());
+        
+        actions.getChildren().addAll(installBtn, listBtn, emptyBtn);
+        
+        section.getChildren().addAll(sectionTitle, desc, apkRow, tagRow, actions);
+        return section;
+    }
+    
+    private void browseFrameworkApk() {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Select Framework APK");
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("APK Files", "*.apk"));
+        File selectedFile = fileChooser.showOpenDialog(null);
+        if (selectedFile != null) {
+            frameworkApkField.setText(selectedFile.getAbsolutePath());
+        }
+    }
+    
+    private void installFramework() {
+        if (apkToolService == null) {
+            userNotifier.showError("ApkToolService not initialized");
+            return;
+        }
+        String apkPath = frameworkApkField.getText();
+        String tag = frameworkTagField.getText();
+        apkToolService.executeInstallFramework(apkPath, tag);
+    }
+    
+    private void listFrameworks() {
+        if (apkToolService == null) {
+            userNotifier.showError("ApkToolService not initialized");
+            return;
+        }
+        apkToolService.executeListFrameworks();
+    }
+    
+    private void emptyFrameworkDir() {
+        if (apkToolService == null) {
+            userNotifier.showError("ApkToolService not initialized");
+            return;
+        }
+        apkToolService.executeEmptyFrameworkDir();
+    }
+    
+    public void setApkToolService(ApkToolService apkToolService) {
+        this.apkToolService = apkToolService;
     }
     
     private Node createPreferencesSection() {
